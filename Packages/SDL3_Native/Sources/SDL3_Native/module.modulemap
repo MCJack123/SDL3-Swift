@@ -1,0 +1,5 @@
+module SDL3_Native {
+    header "../../Headers/SDL3-Bridging-Header.h"
+    link "SDL3"
+    export *
+}
