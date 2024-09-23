@@ -1,5 +1,5 @@
 # SDL3-Swift
-A Swift wrapper library for SDL3.
+A Swift wrapper library for SDL3. **This is very incomplete!**
 
 ## Installation
 Add this line to your `Package.swift` file's dependencies:
