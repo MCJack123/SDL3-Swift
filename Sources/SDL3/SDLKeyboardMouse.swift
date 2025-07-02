@@ -40,7 +40,7 @@ public class SDLCursor {
 
     public static var visble: Bool {
         get {
-            return SDL_CursorVisible() == SDL_TRUE
+            return SDL_CursorVisible()
         } set (value) {
             if value {
                 SDL_ShowCursor()
@@ -130,12 +130,21 @@ public func SDLWarpMouse(to point: SDLFPoint) {
 
 public var SDLRelativeMouseMode: Bool {
     get {
-        return SDL_GetRelativeMouseMode() == SDL_TRUE
+        return SDL_GetRelativeMouseMode()
     } set (value) {
-        SDL_SetRelativeMouseMode(value ? SDL_TRUE : SDL_FALSE)
+        SDL_SetRelativeMouseMode(value ? SDL_bool(SDL_TRUE) : SDL_bool(SDL_FALSE))
     }
 }
 
+/// Get a snapshot of the current state of the keyboard.
+///
+/// This variable gives you the current state after all events have been
+/// processed, so if a key or button has been pressed and released before you
+/// process events, then the pressed state will never show up in the
+/// SDLKeyboardState calls.
+///
+/// Note: This variable doesn't take into account whether shift has been
+/// pressed or not.
 public var SDLKeyboardState: [SDLScancode: Bool] {
     var res = [SDLScancode: Bool]()
     var ptr: UnsafePointer<UInt8>!
@@ -150,6 +159,51 @@ public var SDLKeyboardState: [SDLScancode: Bool] {
     return res
 }
 
+/// Clear the state of the keyboard
+///
+/// This function will generate key up events for all pressed keys.
 public func SDLResetKeyboard() {
     SDL_ResetKeyboard()
+}
+
+public var SDLKeyboardModifiers: SDLKeyModifiers {
+    get {
+        return SDLKeyModifiers(rawValue: UInt16(SDL_GetModState().rawValue))
+    } set (value) {
+        SDL_SetModState(SDL_Keymod(rawValue: UInt32(value.rawValue)))
+    }
+}
+
+public func SDLStartTextInput() {
+    SDL_StartTextInput()
+}
+
+public func SDLStopTextInput() {
+    SDL_StopTextInput()
+}
+
+public var SDLTextInputActive: Bool {
+    return SDL_TextInputActive()
+}
+
+public func SDLClearComposition() {
+    SDL_ClearComposition()
+}
+
+public var SDLTextInputShown: Bool {
+    return SDL_TextInputShown()
+}
+
+public func SDLSetTextInput(rect: SDLRect) throws {
+    let ptr = rect.sdlRect
+    let ok = withUnsafePointer(to: ptr) {_ptr in
+        SDL_SetTextInputRect(_ptr) == 0
+    }
+    if !ok {
+        throw SDLError()
+    }
+}
+
+public var SDLHasScreenKeyboardSupport: Bool {
+    return SDL_HasScreenKeyboardSupport()
 }

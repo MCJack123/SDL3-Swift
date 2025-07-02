@@ -35,10 +35,6 @@ public struct SDLSize: Equatable {
     }
 }
 
-internal extension SDL_Rect {
-    static let NULL = UnsafePointer<SDL_Rect>(bitPattern: 0)!
-}
-
 public struct SDLRect: Equatable {
     public var x: Int32 = 0
     public var y: Int32 = 0
@@ -52,14 +48,11 @@ public struct SDLRect: Equatable {
             _points[i] = points[i].sdlPoint
         }
         var res = SDL_Rect()
-        let ok = withUnsafeMutablePointer(to: &res) {_res in
-            if let clip = rect?.sdlRect {
-                return withUnsafePointer(to: clip) {_clip in
-                    return SDL_GetRectEnclosingPoints(_points, Int32(points.count), _clip, _res) == SDL_TRUE
-                }
-            } else {
-                return SDL_GetRectEnclosingPoints(_points, Int32(points.count), SDL_Rect.NULL, _res) == SDL_TRUE
-            }
+        let ok: Bool
+        if var clip = rect?.sdlRect {
+            ok = SDL_GetRectEnclosingPoints(_points, Int32(points.count), &clip, &res)
+        } else {
+            ok = SDL_GetRectEnclosingPoints(_points, Int32(points.count), nil, &res)
         }
         if ok {
             return SDLRect(from: res)
@@ -113,27 +106,16 @@ public struct SDLRect: Equatable {
     }
 
     public func intersects(with rect: SDLRect) -> Bool {
-        let a = self.sdlRect
-        let b = rect.sdlRect
-        return withUnsafePointer(to: a) {_a in
-            withUnsafePointer(to: b) {_b in
-                Bool(SDL_HasRectIntersection(_a, _b))
-            }
-        }
+        var a = self.sdlRect
+        var b = rect.sdlRect
+        return SDL_HasRectIntersection(&a, &b)
     }
 
     public func intersection(with rect: SDLRect) -> SDLRect? {
-        let a = self.sdlRect
-        let b = rect.sdlRect
+        var a = self.sdlRect
+        var b = rect.sdlRect
         var res = SDL_Rect()
-        let ok = withUnsafePointer(to: a) {_a in
-            withUnsafePointer(to: b) {_b in
-                withUnsafeMutablePointer(to: &res) {_res in
-                    SDL_GetRectIntersection(_a, _b, _res) == SDL_TRUE 
-                }
-            }
-        }
-        if ok {
+        if SDL_GetRectIntersection(&a, &b, &res) {
             return SDLRect(from: res)
         } else {
             return nil
@@ -141,17 +123,10 @@ public struct SDLRect: Equatable {
     }
 
     public func union(with rect: SDLRect) throws -> SDLRect {
-        let a = self.sdlRect
-        let b = rect.sdlRect
+        var a = self.sdlRect
+        var b = rect.sdlRect
         var res = SDL_Rect()
-        let ok = withUnsafePointer(to: a) {_a in
-            withUnsafePointer(to: b) {_b in
-                withUnsafeMutablePointer(to: &res) {_res in
-                   SDL_GetRectUnion(_a, _b, _res) == 0
-                }
-            }
-        }
-        if ok {
+        if SDL_GetRectUnion(&a, &b, &res) {
             return SDLRect(from: res)
         } else {
             throw SDLError()
@@ -163,19 +138,8 @@ public struct SDLRect: Equatable {
         var y1 = a.y
         var x2 = b.x
         var y2 = b.y
-        let rect = self.sdlRect
-        let ok = withUnsafeMutablePointer(to: &x1) {_x1 in
-            withUnsafeMutablePointer(to: &y1) {_y1 in
-                withUnsafeMutablePointer(to: &x2) {_x2 in
-                    withUnsafeMutablePointer(to: &y2) {_y2 in
-                        withUnsafePointer(to: rect) {_rect in
-                            SDL_GetRectAndLineIntersection(_rect, _x1, _y1, _x2, _y2) == SDL_TRUE
-                        }
-                    }
-                }
-            }
-        }
-        if ok {
+        var rect = self.sdlRect
+        if SDL_GetRectAndLineIntersection(&rect, &x1, &y1, &x2, &y2) {
             return (SDLPoint(x: x1, y: y1), SDLPoint(x: x2, y: y2))
         } else {
             return nil
@@ -223,14 +187,11 @@ public struct SDLFRect: Equatable {
             _points[i] = points[i].sdlPoint
         }
         var res = SDL_FRect()
-        let ok = withUnsafeMutablePointer(to: &res) {_res in
-            if let clip = rect?.sdlRect {
-                return withUnsafePointer(to: clip) {_clip in
-                    SDL_GetRectEnclosingPointsFloat(_points, Int32(points.count), _clip, _res) == SDL_TRUE
-                }
-            } else {
-                return SDL_GetRectEnclosingPointsFloat(_points, Int32(points.count), SDL_FRect.NULL, _res) == SDL_TRUE
-            }
+        let ok: Bool
+        if var clip = rect?.sdlRect {
+            ok = SDL_GetRectEnclosingPointsFloat(_points, Int32(points.count), &clip, &res)
+        } else {
+            ok = SDL_GetRectEnclosingPointsFloat(_points, Int32(points.count), nil, &res)
         }
         if ok {
             return SDLFRect(from: res)
@@ -272,27 +233,16 @@ public struct SDLFRect: Equatable {
     }
 
     public func intersects(with rect: SDLFRect) -> Bool {
-        let a = self.sdlRect
-        let b = rect.sdlRect
-        return withUnsafePointer(to: a) {_a in
-            withUnsafePointer(to: b) {_b in
-                return Bool(SDL_HasRectIntersectionFloat(_a, _b))
-            }
-        }
+        var a = self.sdlRect
+        var b = rect.sdlRect
+        return SDL_HasRectIntersectionFloat(&a, &b)
     }
 
     public func intersection(with rect: SDLFRect) -> SDLFRect? {
-        let a = self.sdlRect
-        let b = rect.sdlRect
+        var a = self.sdlRect
+        var b = rect.sdlRect
         var res = SDL_FRect()
-        let ok = withUnsafePointer(to: a) {_a in
-            withUnsafePointer(to: b) {_b in
-                withUnsafeMutablePointer(to: &res) {_res in
-                    SDL_GetRectIntersectionFloat(_a, _b, _res) == SDL_TRUE
-                }
-            }
-        }
-        if ok {
+        if SDL_GetRectIntersectionFloat(&a, &b, &res) {
             return SDLFRect(from: res)
         } else {
             return nil
@@ -300,17 +250,10 @@ public struct SDLFRect: Equatable {
     }
 
     public func union(with rect: SDLFRect) throws -> SDLFRect {
-        let a = self.sdlRect
-        let b = rect.sdlRect
+        var a = self.sdlRect
+        var b = rect.sdlRect
         var res = SDL_FRect()
-        let ok = withUnsafePointer(to: a) {_a in
-            withUnsafePointer(to: b) {_b in
-                withUnsafeMutablePointer(to: &res) {_res in
-                    return SDL_GetRectUnionFloat(_a, _b, _res) == 0
-                }
-            }
-        }
-        if ok {
+        if SDL_GetRectUnionFloat(&a, &b, &res) {
             return SDLFRect(from: res)
         } else {
             throw SDLError()
@@ -322,19 +265,8 @@ public struct SDLFRect: Equatable {
         var y1 = a.y
         var x2 = b.x
         var y2 = b.y
-        let rect = self.sdlRect
-        let ok = withUnsafeMutablePointer(to: &x1) {_x1 in
-            withUnsafeMutablePointer(to: &y1) {_y1 in
-                withUnsafeMutablePointer(to: &x2) {_x2 in
-                    withUnsafeMutablePointer(to: &y2) {_y2 in
-                        withUnsafePointer(to: rect) {_rect in
-                            SDL_GetRectAndLineIntersectionFloat(_rect, _x1, _y1, _x2, _y2) == SDL_TRUE
-                        }
-                    }
-                }
-            }
-        }
-        if ok {
+        var rect = self.sdlRect
+        if SDL_GetRectAndLineIntersectionFloat(&rect, &x1, &y1, &x2, &y2) {
             return (SDLFPoint(x: x1, y: y1), SDLFPoint(x: x2, y: y2))
         } else {
             return nil

@@ -313,14 +313,6 @@ public struct SDLHint {
         }
     }
 
-    public static var imeSupportExtendedText: String {
-        get {
-            return String(cString: SDL_GetHint(SDL_HINT_IME_SUPPORT_EXTENDED_TEXT))
-        } set (value) {
-            SDL_SetHint(SDL_HINT_IME_SUPPORT_EXTENDED_TEXT, value)
-        }
-    }
-
     public static var iosHideHomeIndicator: String {
         get {
             return String(cString: SDL_GetHint(SDL_HINT_IOS_HIDE_HOME_INDICATOR))

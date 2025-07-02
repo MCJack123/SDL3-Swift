@@ -1,130 +1,185 @@
 import SDL3_Native
 
-public class SDLPixelFormat {
-    public typealias Enum = SDL_PixelFormatEnum
-    public static let unknown = SDL_PIXELFORMAT_UNKNOWN
-    public static let index1LSB = SDL_PIXELFORMAT_INDEX1LSB
-    public static let index1MSB = SDL_PIXELFORMAT_INDEX1MSB
-    public static let index4LSB = SDL_PIXELFORMAT_INDEX4LSB
-    public static let index4MSB = SDL_PIXELFORMAT_INDEX4MSB
-    public static let index8 = SDL_PIXELFORMAT_INDEX8
-    public static let rgb332 = SDL_PIXELFORMAT_RGB332
-    public static let xrgb4444 = SDL_PIXELFORMAT_XRGB4444
-    public static let rgb444 = SDL_PIXELFORMAT_RGB444
-    public static let xbgr4444 = SDL_PIXELFORMAT_XBGR4444
-    public static let bgr444 = SDL_PIXELFORMAT_BGR444
-    public static let xrgb1555 = SDL_PIXELFORMAT_XRGB1555
-    public static let rgb555 = SDL_PIXELFORMAT_RGB555
-    public static let xbgr1555 = SDL_PIXELFORMAT_XBGR1555
-    public static let bgr555 = SDL_PIXELFORMAT_BGR555
-    public static let argb4444 = SDL_PIXELFORMAT_ARGB4444
-    public static let rgba4444 = SDL_PIXELFORMAT_RGBA4444
-    public static let abgr4444 = SDL_PIXELFORMAT_ABGR4444
-    public static let bgra4444 = SDL_PIXELFORMAT_BGRA4444
-    public static let argb1555 = SDL_PIXELFORMAT_ARGB1555
-    public static let rgba5551 = SDL_PIXELFORMAT_RGBA5551
-    public static let abgr1555 = SDL_PIXELFORMAT_ABGR1555
-    public static let bgra5551 = SDL_PIXELFORMAT_BGRA5551
-    public static let rgb565 = SDL_PIXELFORMAT_RGB565
-    public static let bgr565 = SDL_PIXELFORMAT_BGR565
-    public static let rgb24 = SDL_PIXELFORMAT_RGB24
-    public static let bgr24 = SDL_PIXELFORMAT_BGR24
-    public static let xrgb8888 = SDL_PIXELFORMAT_XRGB8888
-    public static let rgbx8888 = SDL_PIXELFORMAT_RGBX8888
-    public static let xbgr8888 = SDL_PIXELFORMAT_XBGR8888
-    public static let bgrx8888 = SDL_PIXELFORMAT_BGRX8888
-    public static let argb8888 = SDL_PIXELFORMAT_ARGB8888
-    public static let rgba8888 = SDL_PIXELFORMAT_RGBA8888
-    public static let abgr8888 = SDL_PIXELFORMAT_ABGR8888
-    public static let bgra8888 = SDL_PIXELFORMAT_BGRA8888
-    public static let argb2101010 = SDL_PIXELFORMAT_ARGB2101010
-    public static let rgba32 = SDL_PIXELFORMAT_RGBA32
-    public static let argb32 = SDL_PIXELFORMAT_ARGB32
-    public static let bgra32 = SDL_PIXELFORMAT_BGRA32
-    public static let abgr32 = SDL_PIXELFORMAT_ABGR32
-    public static let rgbx32 = SDL_PIXELFORMAT_RGBX32
-    public static let xrgb32 = SDL_PIXELFORMAT_XRGB32
-    public static let bgrx32 = SDL_PIXELFORMAT_BGRX32
-    public static let xbgr32 = SDL_PIXELFORMAT_XBGR32
-    public static let yv12 = SDL_PIXELFORMAT_YV12
-    public static let iyuv = SDL_PIXELFORMAT_IYUV
-    public static let yuy2 = SDL_PIXELFORMAT_YUY2
-    public static let uyvy = SDL_PIXELFORMAT_UYVY
-    public static let yvyu = SDL_PIXELFORMAT_YVYU
-    public static let nv12 = SDL_PIXELFORMAT_NV12
-    public static let nv21 = SDL_PIXELFORMAT_NV21
-    public static let externalOES = SDL_PIXELFORMAT_EXTERNAL_OES
+public struct SDLPixelFormat {
+    public static let unknown = SDLPixelFormat(from: SDL_PIXELFORMAT_UNKNOWN)
+    public static let index1LSB = SDLPixelFormat(from: SDL_PIXELFORMAT_INDEX1LSB)
+    public static let index1MSB = SDLPixelFormat(from: SDL_PIXELFORMAT_INDEX1MSB)
+    public static let index4LSB = SDLPixelFormat(from: SDL_PIXELFORMAT_INDEX4LSB)
+    public static let index4MSB = SDLPixelFormat(from: SDL_PIXELFORMAT_INDEX4MSB)
+    public static let index8 = SDLPixelFormat(from: SDL_PIXELFORMAT_INDEX8)
+    public static let rgb332 = SDLPixelFormat(from: SDL_PIXELFORMAT_RGB332)
+    public static let xrgb4444 = SDLPixelFormat(from: SDL_PIXELFORMAT_XRGB4444)
+    public static let xbgr4444 = SDLPixelFormat(from: SDL_PIXELFORMAT_XBGR4444)
+    public static let xrgb1555 = SDLPixelFormat(from: SDL_PIXELFORMAT_XRGB1555)
+    public static let xbgr1555 = SDLPixelFormat(from: SDL_PIXELFORMAT_XBGR1555)
+    public static let argb4444 = SDLPixelFormat(from: SDL_PIXELFORMAT_ARGB4444)
+    public static let rgba4444 = SDLPixelFormat(from: SDL_PIXELFORMAT_RGBA4444)
+    public static let abgr4444 = SDLPixelFormat(from: SDL_PIXELFORMAT_ABGR4444)
+    public static let bgra4444 = SDLPixelFormat(from: SDL_PIXELFORMAT_BGRA4444)
+    public static let argb1555 = SDLPixelFormat(from: SDL_PIXELFORMAT_ARGB1555)
+    public static let rgba5551 = SDLPixelFormat(from: SDL_PIXELFORMAT_RGBA5551)
+    public static let abgr1555 = SDLPixelFormat(from: SDL_PIXELFORMAT_ABGR1555)
+    public static let bgra5551 = SDLPixelFormat(from: SDL_PIXELFORMAT_BGRA5551)
+    public static let rgb565 = SDLPixelFormat(from: SDL_PIXELFORMAT_RGB565)
+    public static let bgr565 = SDLPixelFormat(from: SDL_PIXELFORMAT_BGR565)
+    public static let rgb24 = SDLPixelFormat(from: SDL_PIXELFORMAT_RGB24)
+    public static let bgr24 = SDLPixelFormat(from: SDL_PIXELFORMAT_BGR24)
+    public static let xrgb8888 = SDLPixelFormat(from: SDL_PIXELFORMAT_XRGB8888)
+    public static let rgbx8888 = SDLPixelFormat(from: SDL_PIXELFORMAT_RGBX8888)
+    public static let xbgr8888 = SDLPixelFormat(from: SDL_PIXELFORMAT_XBGR8888)
+    public static let bgrx8888 = SDLPixelFormat(from: SDL_PIXELFORMAT_BGRX8888)
+    public static let argb8888 = SDLPixelFormat(from: SDL_PIXELFORMAT_ARGB8888)
+    public static let rgba8888 = SDLPixelFormat(from: SDL_PIXELFORMAT_RGBA8888)
+    public static let abgr8888 = SDLPixelFormat(from: SDL_PIXELFORMAT_ABGR8888)
+    public static let bgra8888 = SDLPixelFormat(from: SDL_PIXELFORMAT_BGRA8888)
+    public static let argb2101010 = SDLPixelFormat(from: SDL_PIXELFORMAT_ARGB2101010)
+    public static let rgba32 = SDLPixelFormat(from: SDL_PIXELFORMAT_RGBA32)
+    public static let argb32 = SDLPixelFormat(from: SDL_PIXELFORMAT_ARGB32)
+    public static let bgra32 = SDLPixelFormat(from: SDL_PIXELFORMAT_BGRA32)
+    public static let abgr32 = SDLPixelFormat(from: SDL_PIXELFORMAT_ABGR32)
+    public static let rgbx32 = SDLPixelFormat(from: SDL_PIXELFORMAT_RGBX32)
+    public static let xrgb32 = SDLPixelFormat(from: SDL_PIXELFORMAT_XRGB32)
+    public static let bgrx32 = SDLPixelFormat(from: SDL_PIXELFORMAT_BGRX32)
+    public static let xbgr32 = SDLPixelFormat(from: SDL_PIXELFORMAT_XBGR32)
+    public static let yv12 = SDLPixelFormat(from: SDL_PIXELFORMAT_YV12)
+    public static let iyuv = SDLPixelFormat(from: SDL_PIXELFORMAT_IYUV)
+    public static let yuy2 = SDLPixelFormat(from: SDL_PIXELFORMAT_YUY2)
+    public static let uyvy = SDLPixelFormat(from: SDL_PIXELFORMAT_UYVY)
+    public static let yvyu = SDLPixelFormat(from: SDL_PIXELFORMAT_YVYU)
+    public static let nv12 = SDLPixelFormat(from: SDL_PIXELFORMAT_NV12)
+    public static let nv21 = SDLPixelFormat(from: SDL_PIXELFORMAT_NV21)
+    public static let externalOES = SDLPixelFormat(from: SDL_PIXELFORMAT_EXTERNAL_OES)
 
-    public static func name(for format: UInt32) -> String {
-        return String(cString: SDL_GetPixelFormatName(format));
+    internal let fmt: SDL_PixelFormat
+    internal var details: UnsafePointer<SDL_PixelFormatDetails>? {
+        return nullCheck(SDL_GetPixelFormatDetails(fmt))
     }
 
-    public static func pixelFormatEnumForMasks(bitsPerPixel bpp: Int32, red: UInt32, green: UInt32, blue: UInt32, alpha: UInt32) -> UInt32 {
-        return SDL_GetPixelFormatEnumForMasks(bpp, red, green, blue, alpha);
+    internal init(from fmt: SDL_PixelFormat) {
+        self.fmt = fmt
     }
-    
-    public static func masks(for format: UInt32) -> (Int32, UInt32, UInt32, UInt32, UInt32)? {
-        var bpp: Int32 = 0
-        var t: (UInt32, UInt32, UInt32, UInt32) = (0, 0, 0, 0)
-        var ok: Bool = false
-        withUnsafeMutablePointer(to: &bpp) {_bpp in
-            t = fourPointers {_red, _green, _blue, _alpha in
-                ok = SDL_GetMasksForPixelFormatEnum(format, _bpp, _red, _green, _blue, _alpha) == SDL_TRUE
-            }
+
+    public init(from fourcc: String) throws {
+        if fourcc.count != 4 {
+            throw SDLError(message: "FourCC must be 4 characters long")
         }
-        if ok {
-            return (bpp, t.0, t.1, t.2, t.3)
-        } else {
-            return nil
-        }
+        let chars = fourcc.map {$0.asciiValue!}
+        self.fmt = SDL_PixelFormat(rawValue: 
+            UInt32(chars[0]) << 0 |
+            UInt32(chars[1]) << 8 |
+            UInt32(chars[2]) << 16 |
+            UInt32(chars[3]) << 24
+        )
     }
 
-    internal let ptr: UnsafeMutablePointer<SDL_PixelFormat>
-    private let owned: Bool
-
-    internal init(from ptr: UnsafeMutablePointer<SDL_PixelFormat>) {
-        self.ptr = ptr
-        self.owned = false
+    public init(with type: SDLIndexedPixelType, order: SDLBitmapPixelOrder, bits: Int, bytes: Int) {
+        let t = ((type.rawValue) << 24)
+        let o = ((order.rawValue) << 20)
+        let b = UInt32((bits) << 8)
+        let B = UInt32((bytes) << 0)
+        self.fmt = SDL_PixelFormat(rawValue: (1 << 28) | t | o | b | B)
     }
 
-    public init(for format: UInt32) throws {
-        if let ptr = nullCheck(SDL_CreatePixelFormat(format)) {
-            self.ptr = ptr
-            self.owned = true
-        } else {
-            throw SDLError()
-        }
+    public init(with type: SDLPackedPixelType, order: SDLPackedPixelOrder, layout: SDLPackedPixelLayout, bits: Int, bytes: Int) {
+        let t = ((type.rawValue) << 24)
+        let o = ((order.rawValue) << 20)
+        let l = ((layout.rawValue) << 16)
+        let b = UInt32((bits) << 8)
+        let B = UInt32((bytes) << 0)
+        self.fmt = SDL_PixelFormat(rawValue: (1 << 28) | t | o | l | b | B)
     }
 
-    deinit {
-        if owned {
-            SDL_DestroyPixelFormat(ptr)
-        }
+    public init(with type: SDLArrayPixelType, order: SDLArrayPixelOrder, bits: Int, bytes: Int) {
+        let t = ((type.rawValue) << 24)
+        let o = ((order.rawValue) << 20)
+        let b = UInt32((bits) << 8)
+        let B = UInt32((bytes) << 0)
+        self.fmt = SDL_PixelFormat(rawValue: (1 << 28) | t | o | b | B)
     }
 
-    public var format: SDLPixelFormat.Enum {return SDL_PixelFormatEnum(ptr.pointee.format)}
-    public var bitsPerPixel: UInt8 {return ptr.pointee.BitsPerPixel}
-    public var bytesPerPixel: UInt8  {return ptr.pointee.BytesPerPixel}
-    public var Rmask: UInt32 {return ptr.pointee.Rmask}
-    public var Gmask: UInt32 {return ptr.pointee.Gmask}
-    public var Bmask: UInt32 {return ptr.pointee.Bmask}
-    public var Amask: UInt32 {return ptr.pointee.Amask}
-    public var Rloss: UInt8 {return ptr.pointee.Rloss}
-    public var Gloss: UInt8 {return ptr.pointee.Gloss}
-    public var Bloss: UInt8 {return ptr.pointee.Bloss}
-    public var Aloss: UInt8 {return ptr.pointee.Aloss}
-    public var Rshift: UInt8 {return ptr.pointee.Rshift}
-    public var Gshift: UInt8 {return ptr.pointee.Gshift}
-    public var Bshift: UInt8 {return ptr.pointee.Bshift}
-    public var Ashift: UInt8 {return ptr.pointee.Ashift}
-
-    public var palette: SDLPalette {
-        get {
-            return SDLPalette(from: ptr.pointee.palette)
-        } set (value) {
-            SDL_SetPixelFormatPalette(ptr, value.ptr)
-        }
+    public init(bitsPerPixel bpp: Int32, red: UInt32, green: UInt32, blue: UInt32, alpha: UInt32) {
+        self.fmt = SDL_GetPixelFormatForMasks(bpp, red, green, blue, alpha);
     }
+
+    public var bitsPerPixel: UInt8 {return details!.pointee.bits_per_pixel}
+    public var bytesPerPixel: UInt8  {return details!.pointee.bytes_per_pixel}
+    public var Rmask: UInt32 {return details!.pointee.Rmask}
+    public var Gmask: UInt32 {return details!.pointee.Gmask}
+    public var Bmask: UInt32 {return details!.pointee.Bmask}
+    public var Amask: UInt32 {return details!.pointee.Amask}
+    public var Rbits: UInt8 {return details!.pointee.Rbits}
+    public var Gbits: UInt8 {return details!.pointee.Gbits}
+    public var Bbits: UInt8 {return details!.pointee.Bbits}
+    public var Abits: UInt8 {return details!.pointee.Abits}
+    public var Rshift: UInt8 {return details!.pointee.Rshift}
+    public var Gshift: UInt8 {return details!.pointee.Gshift}
+    public var Bshift: UInt8 {return details!.pointee.Bshift}
+    public var Ashift: UInt8 {return details!.pointee.Ashift}
+
+    public var name: String {
+        return String(cString: SDL_GetPixelFormatName(fmt));
+    }
+}
+
+public enum SDLIndexedPixelType: UInt32 {
+    case i1 = 1
+    case i2 = 12
+    case i4 = 2
+    case i8 = 3
+}
+
+public enum SDLPackedPixelType: UInt32 {
+    case p8 = 4
+    case p16 = 5
+    case p32 = 6
+}
+
+public enum SDLArrayPixelType: UInt32 {
+    case u8 = 7
+    case u16 = 8
+    case u32 = 9
+    case f16 = 10
+    case f32 = 11
+}
+
+public enum SDLBitmapPixelOrder: UInt32 {
+    case none
+    case o4321
+    case o1234
+}
+
+public enum SDLPackedPixelOrder: UInt32 {
+    case none
+    case xrgb
+    case rgbx
+    case argb
+    case rgba
+    case xbgr
+    case bgrx
+    case abgr
+    case bgra
+}
+
+public enum SDLArrayPixelOrder: UInt32 {
+    case none
+    case rgb
+    case rgba
+    case argb
+    case bgr
+    case bgra
+    case abgr
+}
+
+public enum SDLPackedPixelLayout: UInt32 {
+    case none
+    case l332
+    case l4444
+    case l1555
+    case l5551
+    case l565
+    case l8888
+    case l2101010
+    case l1010102
 }
 
 public class SDLPalette {
@@ -134,6 +189,11 @@ public class SDLPalette {
     internal init(from ptr: UnsafeMutablePointer<SDL_Palette>) {
         self.ptr = ptr
         self.owned = false
+    }
+
+    internal init(owning ptr: UnsafeMutablePointer<SDL_Palette>) {
+        self.ptr = ptr
+        self.owned = true
     }
 
     public init(count: Int32) throws {
@@ -201,14 +261,8 @@ public struct SDLColor {
         alpha = a
     }
 
-    public init(from pixel: UInt32, as format: SDLPixelFormat) {
-        let t = fourPointers {_red, _green, _blue, _alpha in
-            SDL_GetRGBA(pixel, format.ptr, _red, _green, _blue, _alpha)
-        }
-        red = t.0
-        green = t.1
-        blue = t.2
-        alpha = t.3
+    public init(from pixel: UInt32, as format: SDLPixelFormat, with palette: SDLPalette? = nil) {
+        SDL_GetRGBA(pixel, format.details!, palette?.ptr, &red, &green, &blue, &alpha)
     }
 
     internal var sdlColor: SDL_Color {
@@ -239,11 +293,72 @@ public struct SDLColor {
         return (UInt32(blue) << 16) | (UInt32(green) << 8) | (UInt32(red) << 0)
     }
 
-    public func rgb(as format: SDLPixelFormat) -> UInt32 {
-        SDL_MapRGB(format.ptr, red, green, blue)
+    public func rgb(as format: SDLPixelFormat, with palette: SDLPalette? = nil) -> UInt32 {
+        SDL_MapRGB(format.details!, palette?.ptr, red, green, blue)
     }
 
-    public func rgba(as format: SDLPixelFormat) -> UInt32 {
-        SDL_MapRGBA(format.ptr, red, green, blue, alpha)
+    public func rgba(as format: SDLPixelFormat, with palette: SDLPalette? = nil) -> UInt32 {
+        SDL_MapRGBA(format.details!, palette?.ptr, red, green, blue, alpha)
+    }
+}
+
+/// 
+/// Copy a block of pixels of one format to another format.
+/// 
+/// \param width the width of the block to copy, in pixels.
+/// \param height the height of the block to copy, in pixels.
+/// \param src_format an SDL_PixelFormat value of the `src` pixels format.
+/// \param src a pointer to the source pixels.
+/// \param src_pitch the pitch of the source pixels, in bytes.
+/// \param dst_format an SDL_PixelFormat value of the `dst` pixels format.
+/// \param dst a pointer to be filled in with new pixel data.
+/// \param dst_pitch the pitch of the destination pixels, in bytes.
+/// \returns true on success or false on failure; call SDL_GetError() for more
+///          information.
+/// 
+/// \since This function is available since SDL 3.2.0.
+/// 
+/// \sa SDL_ConvertPixelsAndColorspace
+/// 
+public func SDLConvertPixels(
+    width: Int32, height: Int32,
+    srcFormat: SDLPixelFormat, src: UnsafeRawPointer, srcPitch: Int32,
+    dstFormat: SDLPixelFormat, dst: UnsafeMutableRawPointer, dstPitch: Int32
+) throws {
+    if !SDL_ConvertPixels(width, height, srcFormat.fmt, src, srcPitch, dstFormat.fmt, dst, dstPitch) {
+        throw SDLError()
+    }
+}
+
+// TODO: SDLConvertPixelsAndColorspace
+
+/// 
+/// Premultiply the alpha on a block of pixels.
+/// 
+/// This is safe to use with src == dst, but not for other overlapping areas.
+/// 
+/// \param width the width of the block to convert, in pixels.
+/// \param height the height of the block to convert, in pixels.
+/// \param src_format an SDL_PixelFormat value of the `src` pixels format.
+/// \param src a pointer to the source pixels.
+/// \param src_pitch the pitch of the source pixels, in bytes.
+/// \param dst_format an SDL_PixelFormat value of the `dst` pixels format.
+/// \param dst a pointer to be filled in with premultiplied pixel data.
+/// \param dst_pitch the pitch of the destination pixels, in bytes.
+/// \param linear true to convert from sRGB to linear space for the alpha
+///               multiplication, false to do multiplication in sRGB space.
+/// \returns true on success or false on failure; call SDL_GetError() for more
+///          information.
+/// 
+/// \since This function is available since SDL 3.2.0.
+/// 
+public func SDLPremultiplyAlpha(
+    width: Int32, height: Int32,
+    srcFormat: SDLPixelFormat, src: UnsafeRawPointer, srcPitch: Int32,
+    dstFormat: SDLPixelFormat, dst: UnsafeMutableRawPointer, dstPitch: Int32,
+    linear: Bool
+) throws {
+    if !SDL_PremultiplyAlpha(width, height, srcFormat.fmt, src, srcPitch, dstFormat.fmt, dst, dstPitch, linear) {
+        throw SDLError()
     }
 }

@@ -20,14 +20,14 @@ public protocol SDLEventType {
 public extension SDLEventType {
     static var enabled: Bool {
         get {
-            return SDL_EventEnabled(self.type.rawValue) == SDL_TRUE
+            return SDL_EventEnabled(self.type.rawValue)
         } set (value) {
-            SDL_SetEventEnabled(self.type.rawValue, value ? SDL_TRUE : SDL_FALSE)
+            SDL_SetEventEnabled(self.type.rawValue, value)
         }
     }
 
-    func push() throws -> Bool {
-        return try SDLEvent.push(event: self)
+    func push() throws {
+        try SDLEvent.push(event: self)
     }
 }
 
@@ -56,8 +56,8 @@ public enum SDLEvent {
     internal static var eventMap: [UInt32: SDLEventType.Type] = [
         SDL_EVENT_QUIT.rawValue: SDLQuitEvent.self,
         SDL_EVENT_DISPLAY_ORIENTATION.rawValue: SDLDisplayOrientationEvent.self,
-        SDL_EVENT_DISPLAY_CONNECTED.rawValue: SDLDisplayConnectedEvent.self,
-        SDL_EVENT_DISPLAY_DISCONNECTED.rawValue: SDLDisplayDisconnectedEvent.self,
+        SDL_EVENT_DISPLAY_ADDED.rawValue: SDLDisplayAddedEvent.self,
+        SDL_EVENT_DISPLAY_REMOVED.rawValue: SDLDisplayRemovedEvent.self,
         SDL_EVENT_DISPLAY_MOVED.rawValue: SDLDisplayMovedEvent.self,
         SDL_EVENT_DISPLAY_CONTENT_SCALE_CHANGED.rawValue: SDLDisplayContentScaleChangedEvent.self,
         SDL_EVENT_WINDOW_SHOWN.rawValue: SDLWindowShownEvent.self,
@@ -74,7 +74,6 @@ public enum SDLEvent {
         SDL_EVENT_WINDOW_FOCUS_GAINED.rawValue: SDLWindowFocusGainedEvent.self,
         SDL_EVENT_WINDOW_FOCUS_LOST.rawValue: SDLWindowFocusLostEvent.self,
         SDL_EVENT_WINDOW_CLOSE_REQUESTED.rawValue: SDLWindowCloseRequestedEvent.self,
-        SDL_EVENT_WINDOW_TAKE_FOCUS.rawValue: SDLWindowTakeFocusEvent.self,
         SDL_EVENT_WINDOW_HIT_TEST.rawValue: SDLWindowHitTestEvent.self,
         SDL_EVENT_WINDOW_ICCPROF_CHANGED.rawValue: SDLWindowIccprofChangedEvent.self,
         SDL_EVENT_WINDOW_DISPLAY_CHANGED.rawValue: SDLWindowDisplayChangedEvent.self,
@@ -86,7 +85,6 @@ public enum SDLEvent {
         SDL_EVENT_TEXT_EDITING.rawValue: SDLTextEditingEvent.self,
         SDL_EVENT_TEXT_INPUT.rawValue: SDLTextInputEvent.self,
         SDL_EVENT_KEYMAP_CHANGED.rawValue: SDLKeymapChangedEvent.self,
-        SDL_EVENT_TEXT_EDITING_EXT.rawValue: SDLTextEditingExtEvent.self,
         SDL_EVENT_MOUSE_MOTION.rawValue: SDLMouseMotionEvent.self,
         SDL_EVENT_MOUSE_BUTTON_DOWN.rawValue: SDLMouseButtonDownEvent.self,
         SDL_EVENT_MOUSE_BUTTON_UP.rawValue: SDLMouseButtonUpEvent.self,
@@ -101,7 +99,7 @@ public enum SDLEvent {
     }
 
     public static func has<T: SDLEventType>(class clazz: T.Type) -> Bool {
-        return SDL_HasEvent(clazz.type.rawValue) == SDL_TRUE
+        return SDL_HasEvent(clazz.type.rawValue)
     }
 
     @MainActor public static func pump() {
@@ -111,7 +109,7 @@ public enum SDLEvent {
     @MainActor public static func poll() -> SDLEventType? {
         var event = SDL_Event()
         let ok = withUnsafeMutablePointer(to: &event) {_event in
-            SDL_PollEvent(_event) == 1
+            SDL_PollEvent(_event)
         }
         if ok {
             return make(event: event)
@@ -123,7 +121,7 @@ public enum SDLEvent {
     @MainActor public static func wait() throws -> SDLEventType {
         var event = SDL_Event()
         let ok = withUnsafeMutablePointer(to: &event) {_event in
-            SDL_WaitEvent(_event) == 1
+            SDL_WaitEvent(_event)
         }
         if ok {
             return make(event: event)
@@ -135,7 +133,7 @@ public enum SDLEvent {
     @MainActor public static func wait(for timeout: Int32) throws -> SDLEventType? {
         var event = SDL_Event()
         let ok = withUnsafeMutablePointer(to: &event) {_event in
-            SDL_WaitEventTimeout(_event, timeout) == 1
+            SDL_WaitEventTimeout(_event, timeout)
         }
         if ok {
             return make(event: event)
@@ -148,15 +146,13 @@ public enum SDLEvent {
         SDL_FlushEvent(type.type.rawValue)
     }
 
-    public static func push(event: SDLEventType) throws -> Bool {
+    public static func push(event: SDLEventType) throws {
         var ev = event.sdlEvent
         let res = withUnsafeMutablePointer(to: &ev) {_ev in
             SDL_PushEvent(_ev)
         }
-        if res == 1 {
-            return true
-        } else if res == 0 {
-            return false
+        if res {
+            return
         } else {
             throw SDLError()
         }
@@ -219,16 +215,16 @@ public struct SDLDisplayOrientationEvent: SDLDisplayEvent {
     public init(on display: SDLDisplay) {self.display = display}
 }
 
-public struct SDLDisplayConnectedEvent: SDLDisplayEvent {
-    public static var type: SDL_EventType = SDL_EVENT_DISPLAY_CONNECTED
+public struct SDLDisplayAddedEvent: SDLDisplayEvent {
+    public static var type: SDL_EventType = SDL_EVENT_DISPLAY_ADDED
     public var display: SDLDisplay
     public var data1: Int32 = 0
     public var timestamp: UInt64 = 0
     public init(on display: SDLDisplay) {self.display = display}
 }
 
-public struct SDLDisplayDisconnectedEvent: SDLDisplayEvent {
-    public static var type: SDL_EventType = SDL_EVENT_DISPLAY_DISCONNECTED
+public struct SDLDisplayRemovedEvent: SDLDisplayEvent {
+    public static var type: SDL_EventType = SDL_EVENT_DISPLAY_REMOVED
     public var timestamp: UInt64 = 0
     public var display: SDLDisplay
     public var data1: Int32 = 0
@@ -404,15 +400,6 @@ public struct SDLWindowCloseRequestedEvent: SDLWindowEvent {
     public init() {}
 }
 
-public struct SDLWindowTakeFocusEvent: SDLWindowEvent {
-    public static var type: SDL_EventType = SDL_EVENT_WINDOW_TAKE_FOCUS
-    public var timestamp: UInt64 = 0
-    public var window: SDLWindow?
-    public var data1: Int32 = 0
-    public var data2: Int32 = 0
-    public init() {}
-}
-
 public struct SDLWindowHitTestEvent: SDLWindowEvent {
     public static var type: SDL_EventType = SDL_EVENT_WINDOW_HIT_TEST
     public var timestamp: UInt64 = 0
@@ -534,14 +521,11 @@ public struct SDLTextEditingEvent: SDLWindowedEvent {
     public var sdlEvent: SDL_Event {
         var event = SDLEvent.stub(for: self)
         event.edit.windowID = window?.id ?? 0
-        withUnsafeMutablePointer(to: &event.edit.text) {_text in
-            let start = _text.qpointer(to: \.0)!
-            var index = self.text.startIndex
-            for i in 0..<min(self.text.count, 32) {
-                start[i] = Int8(self.text[index].asciiValue ?? 0)
-                index = self.text.index(after: index)
-            }
+        let str = SDL_malloc(text.count + 1)!
+        text.withCString {_text in
+            str.copyMemory(from: UnsafeRawPointer(_text), byteCount: text.count)
         }
+        event.edit.text = str.bindMemory(to: CChar.self, capacity: text.count + 1)
         event.edit.start = cursorPosition
         event.edit.length = selectionLength
         return event
@@ -551,43 +535,9 @@ public struct SDLTextEditingEvent: SDLWindowedEvent {
     public init(from event: SDL_Event) {
         timestamp = event.edit.timestamp
         window = SDLWindow.from(id: event.edit.windowID)
-        withUnsafePointer(to: event.edit.text) {_text in
-            let start = _text.qpointer(to: \.0)!
-            text = String(cString: start)
-        }
+        text = String(cString: event.edit.text)
         cursorPosition = event.edit.start
         selectionLength = event.edit.length
-    }
-}
-
-public struct SDLTextEditingExtEvent: SDLWindowedEvent {
-    public static var type: SDL_EventType = SDL_EVENT_TEXT_EDITING_EXT
-    public var timestamp: UInt64 = 0
-    public var window: SDLWindow? = nil
-    public var text: String = ""
-    public var cursorPosition: Int32 = 0
-    public var selectionLength: Int32 = 0
-
-    public var sdlEvent: SDL_Event {
-        var event = SDLEvent.stub(for: self)
-        event.editExt.windowID = window?.id ?? 0
-        let str = SDL_malloc(text.count + 1)!
-        text.withCString {_text in
-            str.copyMemory(from: UnsafeRawPointer(_text), byteCount: text.count)
-        }
-        event.editExt.text = str.bindMemory(to: CChar.self, capacity: text.count + 1)
-        event.editExt.start = cursorPosition
-        event.editExt.length = selectionLength
-        return event
-    }
-
-    public init() {}
-    public init(from event: SDL_Event) {
-        timestamp = event.editExt.timestamp
-        window = SDLWindow.from(id: event.editExt.windowID)
-        text = String(cString: event.editExt.text)
-        cursorPosition = event.editExt.start
-        selectionLength = event.editExt.length
     }
 }
 
@@ -600,25 +550,19 @@ public struct SDLTextInputEvent: SDLWindowedEvent {
     public var sdlEvent: SDL_Event {
         var event = SDLEvent.stub(for: self)
         event.text.windowID = window?.id ?? 0
-        withUnsafeMutablePointer(to: &event.text.text) {_text in
-            let start = _text.qpointer(to: \.0)!
-            var index = self.text.startIndex
-            for i in 0..<min(self.text.count, 32) {
-                start[i] = Int8(self.text[index].asciiValue ?? 0)
-                index = self.text.index(after: index)
-            }
+        let str = SDL_malloc(text.count + 1)!
+        text.withCString {_text in
+            str.copyMemory(from: UnsafeRawPointer(_text), byteCount: text.count)
         }
+        event.text.text = str.bindMemory(to: CChar.self, capacity: text.count + 1)
         return event
     }
 
     public init() {}
     public init(from event: SDL_Event) {
         timestamp = event.edit.timestamp
-        window = SDLWindow.from(id: event.edit.windowID)
-        withUnsafePointer(to: event.edit.text) {_text in
-            let start = _text.qpointer(to: \.0)!
-            text = String(cString: start)
-        }
+        window = SDLWindow.from(id: event.text.windowID)
+        text = String(cString: event.text.text)
     }
 }
 

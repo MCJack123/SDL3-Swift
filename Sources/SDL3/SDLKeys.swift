@@ -248,6 +248,15 @@ public enum SDLScancode: UInt32 {
     case softright = 288
     case call = 289
     case endcall = 290
+    static func from(keycode: SDLKeycode) -> SDLScancode {
+        return SDLScancode(rawValue: SDL_GetScancodeFromKey(SDL_Keycode(keycode.rawValue)).rawValue)!
+    }
+    static func from(name: String) -> SDLScancode {
+        return SDLScancode(rawValue: SDL_GetScancodeFromName(name).rawValue)!
+    }
+    public var name: String {
+        return String(cString: SDL_GetScancodeName(SDL_Scancode(UInt32(self.rawValue))))
+    }
 }
 
 public enum SDLKeycode: Int32 {
@@ -495,6 +504,15 @@ public enum SDLKeycode: Int32 {
     case softright = 1073742112
     case call = 1073742113
     case endcall = 1073742114
+    public static func from(scancode: SDLScancode) -> SDLKeycode {
+        return SDLKeycode(rawValue: SDL_GetKeyFromScancode(SDL_Scancode(scancode.rawValue)))!
+    }
+    public static func from(name: String) -> SDLKeycode {
+        return SDLKeycode(rawValue: SDL_GetKeyFromName(name))!
+    }
+    public var name: String {
+        return String(cString: SDL_GetKeyName(SDL_Keycode(UInt32(self.rawValue))))
+    }
 }
 
 public struct SDLKeyModifiers: OptionSet {
