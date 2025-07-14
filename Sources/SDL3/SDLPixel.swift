@@ -232,6 +232,16 @@ public class SDLPalette {
     }
 }
 
+/// 
+/// A structure that represents a color as RGBA components.
+/// 
+/// The bits of this structure can be directly reinterpreted as an
+/// integer-packed color which uses the SDL_PIXELFORMAT_RGBA32 format
+/// (SDL_PIXELFORMAT_ABGR8888 on little-endian systems and
+/// SDL_PIXELFORMAT_RGBA8888 on big-endian systems).
+/// 
+/// - Since: This struct is available since SDL 3.2.0.
+/// 
 public struct SDLColor {
     var red: UInt8 = 0
     var green: UInt8 = 0
@@ -303,22 +313,97 @@ public struct SDLColor {
 }
 
 /// 
+/// The bits of this structure can be directly reinterpreted as a float-packed
+/// color which uses the SDL_PIXELFORMAT_RGBA128_FLOAT format
+/// 
+/// - Since: This struct is available since SDL 3.2.0.
+/// 
+public struct SDLFColor {
+    var red: Float = 0.0
+    var green: Float = 0.0
+    var blue: Float = 0.0
+    var alpha: Float = 1.0
+
+    internal init(from color: SDL_FColor) {
+        red = color.r
+        green = color.g
+        blue = color.b
+        alpha = color.a
+    }
+
+    public init() {}
+
+    public init(rgb: UInt32) {
+        red = Float((rgb >> 16) & 0xFF) / 255.0
+        green = Float((rgb >> 8) & 0xFF) / 255.0
+        blue = Float(rgb & 0xFF) / 255.0
+        alpha = 1.0
+    }
+
+    public init(red r: Float, green g: Float, blue b: Float, alpha a: Float = 1.0) {
+        red = r
+        green = g
+        blue = b
+        alpha = a
+    }
+
+    public init(from pixel: UInt32, as format: SDLPixelFormat, with palette: SDLPalette? = nil) {
+        SDL_GetRGBA(pixel, format.details!, palette?.ptr, &red, &green, &blue, &alpha)
+    }
+
+    internal var sdlColor: SDL_FColor {
+        return SDL_FColor(r: red, g: green, b: blue, a: alpha)
+    }
+
+    public var rgba32: UInt32 {
+        return (UInt32(alpha * 255) << 0) | (UInt32(blue * 255) << 8) | (UInt32(green * 255) << 16) | (UInt32(red * 255) << 24)
+    }
+
+    public var abgr32: UInt32 {
+        return (UInt32(alpha * 255) << 24) | (UInt32(blue * 255) << 16) | (UInt32(green * 255) << 8) | (UInt32(red * 255) << 0)
+    }
+
+    public var argb32: UInt32 {
+        return (UInt32(alpha * 255) << 24) | (UInt32(blue * 255) << 0) | (UInt32(green * 255) << 8) | (UInt32(red * 255) << 16)
+    }
+
+    public var bgra32: UInt32 {
+        return (UInt32(alpha * 255) << 0) | (UInt32(blue * 255) << 24) | (UInt32(green * 255) << 16) | (UInt32(red * 255) << 8)
+    }
+
+    public var rgb24: UInt32 {
+        return (UInt32(blue * 255) << 0) | (UInt32(green * 255) << 8) | (UInt32(red * 255) << 16)
+    }
+
+    public var bgr24: UInt32 {
+        return (UInt32(blue * 255) << 16) | (UInt32(green * 255) << 8) | (UInt32(red * 255) << 0)
+    }
+
+    public func rgb(as format: SDLPixelFormat, with palette: SDLPalette? = nil) -> UInt32 {
+        SDL_MapRGB(format.details!, palette?.ptr, UInt8(red * 255), UInt8(green * 255), UInt8(blue * 255))
+    }
+
+    public func rgba(as format: SDLPixelFormat, with palette: SDLPalette? = nil) -> UInt32 {
+        SDL_MapRGBA(format.details!, palette?.ptr, UInt8(red * 255), UInt8(green * 255), UInt8(blue * 255), UInt8(alpha * 255))
+    }
+}
+
+/// 
 /// Copy a block of pixels of one format to another format.
 /// 
-/// \param width the width of the block to copy, in pixels.
-/// \param height the height of the block to copy, in pixels.
-/// \param src_format an SDL_PixelFormat value of the `src` pixels format.
-/// \param src a pointer to the source pixels.
-/// \param src_pitch the pitch of the source pixels, in bytes.
-/// \param dst_format an SDL_PixelFormat value of the `dst` pixels format.
-/// \param dst a pointer to be filled in with new pixel data.
-/// \param dst_pitch the pitch of the destination pixels, in bytes.
-/// \returns true on success or false on failure; call SDL_GetError() for more
-///          information.
+/// - Parameter width: the width of the block to copy, in pixels.
+/// - Parameter height: the height of the block to copy, in pixels.
+/// - Parameter src_format: an SDL_PixelFormat value of the `src` pixels format.
+/// - Parameter src: a pointer to the source pixels.
+/// - Parameter src_pitch: the pitch of the source pixels, in bytes.
+/// - Parameter dst_format: an SDL_PixelFormat value of the `dst` pixels format.
+/// - Parameter dst: a pointer to be filled in with new pixel data.
+/// - Parameter dst_pitch: the pitch of the destination pixels, in bytes.
+/// - Throws: ``SDLError`` if the function fails.
 /// 
-/// \since This function is available since SDL 3.2.0.
+/// - Since: This function is available since SDL 3.2.0.
 /// 
-/// \sa SDL_ConvertPixelsAndColorspace
+/// - See also: SDL_ConvertPixelsAndColorspace
 /// 
 public func SDLConvertPixels(
     width: Int32, height: Int32,
@@ -337,20 +422,19 @@ public func SDLConvertPixels(
 /// 
 /// This is safe to use with src == dst, but not for other overlapping areas.
 /// 
-/// \param width the width of the block to convert, in pixels.
-/// \param height the height of the block to convert, in pixels.
-/// \param src_format an SDL_PixelFormat value of the `src` pixels format.
-/// \param src a pointer to the source pixels.
-/// \param src_pitch the pitch of the source pixels, in bytes.
-/// \param dst_format an SDL_PixelFormat value of the `dst` pixels format.
-/// \param dst a pointer to be filled in with premultiplied pixel data.
-/// \param dst_pitch the pitch of the destination pixels, in bytes.
-/// \param linear true to convert from sRGB to linear space for the alpha
+/// - Parameter width: the width of the block to convert, in pixels.
+/// - Parameter height: the height of the block to convert, in pixels.
+/// - Parameter src_format: an SDL_PixelFormat value of the `src` pixels format.
+/// - Parameter src: a pointer to the source pixels.
+/// - Parameter src_pitch: the pitch of the source pixels, in bytes.
+/// - Parameter dst_format: an SDL_PixelFormat value of the `dst` pixels format.
+/// - Parameter dst: a pointer to be filled in with premultiplied pixel data.
+/// - Parameter dst_pitch: the pitch of the destination pixels, in bytes.
+/// - Parameter linear: true to convert from sRGB to linear space for the alpha
 ///               multiplication, false to do multiplication in sRGB space.
-/// \returns true on success or false on failure; call SDL_GetError() for more
-///          information.
+/// - Throws: ``SDLError`` if the function fails.
 /// 
-/// \since This function is available since SDL 3.2.0.
+/// - Since: This function is available since SDL 3.2.0.
 /// 
 public func SDLPremultiplyAlpha(
     width: Int32, height: Int32,

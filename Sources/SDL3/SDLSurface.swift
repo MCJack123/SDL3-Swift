@@ -1576,15 +1576,32 @@ public class SDLSurface {
 
     // TODO: SDL_ReadSurfacePixelFloat
 
-    private var _renderer: SDLRenderer? = nil
-    public var renderer: SDLRenderer! {
-        if let r = _renderer {
+    private(set) var renderer: SDLRenderer? = nil
+    
+    /// 
+    /// Create a 2D software rendering context for a surface.
+    /// 
+    /// Two other API which can be used to create SDL_Renderer:
+    /// SDL_CreateRenderer() and SDL_CreateWindowAndRenderer(). These can _also_
+    /// create a software renderer, but they are intended to be used with an
+    /// SDL_Window as the final destination and not an SDL_Surface.
+    /// 
+    /// - Returns: a valid rendering context
+    /// - Throws: ``SDLError`` if the function fails.
+    /// 
+    /// - Since: This function is available since SDL 3.2.0.
+    /// 
+    /// - See also: SDL_DestroyRenderer
+    /// 
+    @MainActor public func createRenderer() throws -> SDLRenderer {
+        if let r = renderer {
             return r
         }
         if let ren = SDL_CreateSoftwareRenderer(surf) {
-            _renderer = SDLRenderer(rawValue: ren)
-            return _renderer!
+            renderer = SDLRenderer(rawValue: ren)
+            return renderer!
+        } else {
+            throw SDLError()
         }
-        return nil
     }
 }

@@ -100,110 +100,158 @@ public class SDLCursor {
     }
 }
 
-public func SDLGetMouseState() -> (SDLMouseButtons, SDLFPoint) {
-    var mask: UInt32!
-    let pos = twoPointers {_x, _y in
-        mask = SDL_GetMouseState(_x, _y)
+/// Namespace for keyboard-related variables and functions
+public enum SDLKeyboard {
+    /// 
+    /// Return whether a keyboard is currently connected.
+    /// 
+    /// \returns true if a keyboard is connected, false otherwise.
+    /// 
+    /// \since This function is available since SDL 3.2.0.
+    /// 
+    /// \sa SDL_GetKeyboards
+    /// 
+    @MainActor
+    public var hasKeyboard: Bool {
+        return SDL_HasKeyboard()
     }
-    return (SDLMouseButtons(rawValue: mask), SDLFPoint(x: pos.0, y: pos.1))
-}
 
-public func SDLGetGlobalMouseState() -> (SDLMouseButtons, SDLFPoint) {
-    var mask: UInt32!
-    let pos = twoPointers {_x, _y in
-        mask = SDL_GetGlobalMouseState(_x, _y)
-    }
-    return (SDLMouseButtons(rawValue: mask), SDLFPoint(x: pos.0, y: pos.1))
-}
-
-public func SDLGetRelativeMouseState() -> (SDLMouseButtons, SDLFPoint) {
-    var mask: UInt32!
-    let pos = twoPointers {_x, _y in
-        mask = SDL_GetRelativeMouseState(_x, _y)
-    }
-    return (SDLMouseButtons(rawValue: mask), SDLFPoint(x: pos.0, y: pos.1))
-}
-
-public func SDLWarpMouse(to point: SDLFPoint) {
-    SDL_WarpMouseGlobal(point.x, point.y)
-}
-
-public var SDLRelativeMouseMode: Bool {
-    get {
-        return SDL_GetRelativeMouseMode()
-    } set (value) {
-        SDL_SetRelativeMouseMode(value ? SDL_bool(SDL_TRUE) : SDL_bool(SDL_FALSE))
-    }
-}
-
-/// Get a snapshot of the current state of the keyboard.
-///
-/// This variable gives you the current state after all events have been
-/// processed, so if a key or button has been pressed and released before you
-/// process events, then the pressed state will never show up in the
-/// SDLKeyboardState calls.
-///
-/// Note: This variable doesn't take into account whether shift has been
-/// pressed or not.
-public var SDLKeyboardState: [SDLScancode: Bool] {
-    var res = [SDLScancode: Bool]()
-    var ptr: UnsafePointer<UInt8>!
-    let size = pointer {_size in
-        ptr = SDL_GetKeyboardState(_size)
-    }
-    for i in 0..<Int(size) {
-        if let code = SDLScancode(rawValue: UInt32(i)) {
-            res[code] = ptr[i] != 0
+    /// 
+    /// Get a list of currently connected keyboards.
+    /// 
+    /// Note that this will include any device or virtual driver that includes
+    /// keyboard functionality, including some mice, KVM switches, motherboard
+    /// power buttons, etc. You should wait for input from a device before you
+    /// consider it actively in use.
+    /// 
+    /// \param count a pointer filled in with the number of keyboards returned, may
+    ///              be NULL.
+    /// \returns a 0 terminated array of keyboards instance IDs or NULL on failure;
+    ///          call SDL_GetError() for more information. This should be freed
+    ///          with SDL_free() when it is no longer needed.
+    /// 
+    /// \threadsafety This function should only be called on the main thread.
+    /// 
+    /// \since This function is available since SDL 3.2.0.
+    /// 
+    /// \sa SDL_GetKeyboardNameForID
+    /// \sa SDL_HasKeyboard
+    /// 
+    @MainActor
+    public var keyboards: [UInt32] {
+        get throws {
+            var count: Int32 = 0
+            if let ptr = SDL_GetKeyboards(&count) {
+                return [UInt32](unsafeUninitializedCapacity: Int(count)) {_buffer, _count in
+                    _buffer.baseAddress!.initialize(from: ptr, count: Int(count))
+                    _count = Int(count)
+                    SDL_free(ptr)
+                }
+            } else {
+                throw SDLError()
+            }
         }
     }
-    return res
-}
 
-/// Clear the state of the keyboard
-///
-/// This function will generate key up events for all pressed keys.
-public func SDLResetKeyboard() {
-    SDL_ResetKeyboard()
-}
-
-public var SDLKeyboardModifiers: SDLKeyModifiers {
-    get {
-        return SDLKeyModifiers(rawValue: UInt16(SDL_GetModState().rawValue))
-    } set (value) {
-        SDL_SetModState(SDL_Keymod(rawValue: UInt32(value.rawValue)))
+    /// 
+    /// Get the name of a keyboard.
+    /// 
+    /// This function returns "" if the keyboard doesn't have a name.
+    /// 
+    /// \param instance_id the keyboard instance ID.
+    /// \returns the name of the selected keyboard or NULL on failure; call
+    ///          SDL_GetError() for more information.
+    /// 
+    /// \since This function is available since SDL 3.2.0.
+    /// 
+    /// \sa SDL_GetKeyboards
+    /// 
+    @MainActor
+    public func name(for id: UInt32) throws -> String {
+        if let ptr = SDL_GetKeyboardNameForID(id) {
+            return String(cString: ptr)
+        } else {
+            throw SDLError()
+        }
     }
-}
 
-public func SDLStartTextInput() {
-    SDL_StartTextInput()
-}
-
-public func SDLStopTextInput() {
-    SDL_StopTextInput()
-}
-
-public var SDLTextInputActive: Bool {
-    return SDL_TextInputActive()
-}
-
-public func SDLClearComposition() {
-    SDL_ClearComposition()
-}
-
-public var SDLTextInputShown: Bool {
-    return SDL_TextInputShown()
-}
-
-public func SDLSetTextInput(rect: SDLRect) throws {
-    let ptr = rect.sdlRect
-    let ok = withUnsafePointer(to: ptr) {_ptr in
-        SDL_SetTextInputRect(_ptr) == 0
+    /// 
+    /// Get a snapshot of the current state of the keyboard.
+    /// 
+    /// This function gives you the current state after all events have been
+    /// processed, so if a key or button has been pressed and released before you
+    /// process events, then the pressed state will never show up in the
+    /// SDL_GetKeyboardState() calls.
+    /// 
+    /// Note: This function doesn't take into account whether shift has been
+    /// pressed or not.
+    /// 
+    /// \returns a set of pressed keys.
+    /// 
+    /// \since This function is available since SDL 3.2.0.
+    /// 
+    /// \sa SDL_PumpEvents
+    /// \sa SDL_ResetKeyboard
+    /// 
+    public var state: Set<SDLScancode> {
+        var numkeys: Int32 = 0
+        let ptr = SDL_GetKeyboardState(&numkeys)!
+        let buf = UnsafeBufferPointer<Bool>(start: ptr, count: Int(numkeys))
+        var retval = Set<SDLScancode>()
+        for (i, v) in buf.enumerated() {
+            if v {
+                retval.insert(SDLScancode(rawValue: UInt32(i))!)
+            }
+        }
+        return retval
     }
-    if !ok {
-        throw SDLError()
-    }
-}
 
-public var SDLHasScreenKeyboardSupport: Bool {
-    return SDL_HasScreenKeyboardSupport()
+    /// 
+    /// Clear the state of the keyboard.
+    /// 
+    /// This function will generate key up events for all pressed keys.
+    /// 
+    /// \since This function is available since SDL 3.2.0.
+    /// 
+    /// \sa SDL_GetKeyboardState
+    /// 
+    @MainActor
+    public func reset() {
+        SDL_ResetKeyboard()
+    }
+
+    /// 
+    /// Get the current key modifier state for the keyboard.
+    /// 
+    /// \returns an OR'd combination of the modifier keys for the keyboard. See
+    ///          SDL_Keymod for details.
+    /// 
+    /// \since This function is available since SDL 3.2.0.
+    /// 
+    /// \sa SDL_GetKeyboardState
+    /// \sa SDL_SetModState
+    /// 
+    public var modState: SDLKeyModifiers {
+        get {
+            return SDLKeyModifiers(rawValue: SDL_GetModState())
+        } set (value) {
+            SDL_SetModState(value.rawValue)
+        }
+    }
+
+    // 
+    // Check whether the platform has screen keyboard support.
+    // 
+    // \returns true if the platform has some screen keyboard support or false if
+    //          not.
+    // 
+    // \since This function is available since SDL 3.2.0.
+    // 
+    // \sa SDL_StartTextInput
+    // \sa SDL_ScreenKeyboardShown
+    // 
+    @MainActor
+    public var hasScreenKeyboardSupport: Bool {
+        return SDL_HasScreenKeyboardSupport()
+    }
 }

@@ -1,5 +1,15 @@
 import SDL3_Native
 
+/// The global actor that key conversion functions run on.
+///
+/// The underlying SDL routines for converting keys are not thread-safe, so to
+/// maintain data race safety, they are isolated to this actor. You should not
+/// need to enqueue tasks on this actor manually.
+@globalActor
+public actor SDLKeyConversionActor: GlobalActor {
+    public static let shared = SDLKeyConversionActor()
+}
+
 public enum SDLScancode: UInt32 {
     case unknown = 0
     case a = 4
@@ -248,18 +258,102 @@ public enum SDLScancode: UInt32 {
     case softright = 288
     case call = 289
     case endcall = 290
-    static func from(keycode: SDLKeycode) -> SDLScancode {
-        return SDLScancode(rawValue: SDL_GetScancodeFromKey(SDL_Keycode(keycode.rawValue)).rawValue)!
+
+    /// 
+    /// Get the scancode corresponding to the given key code according to the
+    /// current keyboard layout.
+    /// 
+    /// Note that there may be multiple scancode+modifier states that can generate
+    /// this keycode, this will just return the first one found.
+    /// 
+    /// \param key the desired SDL_Keycode to query.
+    /// \param modstate a pointer to the modifier state that would be used when the
+    ///                 scancode generates this key, may be NULL.
+    /// \returns the SDL_Scancode that corresponds to the given SDL_Keycode.
+    /// 
+    /// \since This function is available since SDL 3.2.0.
+    /// 
+    /// \sa SDL_GetKeyFromScancode
+    /// \sa SDL_GetScancodeName
+    /// 
+    @SDLKeyConversionActor
+    static func from(keycode: SDLKeycode) -> (SDLScancode, SDLKeyModifiers) {
+        var modstate: SDL_Keymod = 0
+        let code = SDL_GetScancodeFromKey(SDL_Keycode(keycode.rawValue), &modstate)
+        return (SDLScancode(rawValue: code.rawValue)!, SDLKeyModifiers(rawValue: modstate))
     }
-    static func from(name: String) -> SDLScancode {
-        return SDLScancode(rawValue: SDL_GetScancodeFromName(name).rawValue)!
+
+    /// 
+    /// Get a scancode from a human-readable name.
+    /// 
+    /// \param name the human-readable scancode name.
+    /// \returns the SDL_Scancode, or `SDL_SCANCODE_UNKNOWN` if the name wasn't
+    ///          recognized; call SDL_GetError() for more information.
+    /// 
+    /// \since This function is available since SDL 3.2.0.
+    /// 
+    /// \sa SDL_GetKeyFromName
+    /// \sa SDL_GetScancodeFromKey
+    /// \sa SDL_GetScancodeName
+    /// 
+    @SDLKeyConversionActor
+    static func from(name: String) throws -> SDLScancode {
+        let code = SDL_GetScancodeFromName(name)
+        if code == SDL_SCANCODE_UNKNOWN {
+            throw SDLError()
+        }
+        return SDLScancode(rawValue: code.rawValue)!
     }
+
+    /// 
+    /// Get a human-readable name for a scancode.
+    /// 
+    /// **Warning**: The returned name is by design not stable across platforms,
+    /// e.g. the name for `SDL_SCANCODE_LGUI` is "Left GUI" under Linux but "Left
+    /// Windows" under Microsoft Windows, and some scancodes like
+    /// `SDL_SCANCODE_NONUSBACKSLASH` don't have any name at all. There are even
+    /// scancodes that share names, e.g. `SDL_SCANCODE_RETURN` and
+    /// `SDL_SCANCODE_RETURN2` (both called "Return"). This function is therefore
+    /// unsuitable for creating a stable cross-platform two-way mapping between
+    /// strings and scancodes.
+    /// 
+    /// \returns the name for the scancode. If the scancode doesn't
+    ///          have a name this function returns an empty string ("").
+    /// 
+    /// \since This function is available since SDL 3.2.0.
+    /// 
+    /// \sa SDL_GetScancodeFromKey
+    /// \sa SDL_GetScancodeFromName
+    /// \sa SDL_SetScancodeName
+    /// 
+    @SDLKeyConversionActor
     public var name: String {
         return String(cString: SDL_GetScancodeName(SDL_Scancode(UInt32(self.rawValue))))
     }
+
+    /// 
+    /// Set a human-readable name for a scancode.
+    /// 
+    /// \param scancode the desired SDL_Scancode.
+    /// \param name the name to use for the scancode, encoded as UTF-8. The string
+    ///             is not copied, so the pointer given to this function must stay
+    ///             valid while SDL is being used.
+    /// \returns true on success or false on failure; call SDL_GetError() for more
+    ///          information.
+    /// 
+    /// \since This function is available since SDL 3.2.0.
+    /// 
+    /// \sa SDL_GetScancodeName
+    /// 
+    @SDLKeyConversionActor
+    public func set(name: String) throws {
+        if !SDL_SetScancodeName(SDL_Scancode(rawValue: self.rawValue), name) {
+            throw SDLError()
+        }
+    }
 }
 
-public enum SDLKeycode: Int32 {
+public enum SDLKeycode: UInt32 {
     case unknown = 0
     case `return` = 13
     case escape = 27
@@ -504,12 +598,70 @@ public enum SDLKeycode: Int32 {
     case softright = 1073742112
     case call = 1073742113
     case endcall = 1073742114
-    public static func from(scancode: SDLScancode) -> SDLKeycode {
-        return SDLKeycode(rawValue: SDL_GetKeyFromScancode(SDL_Scancode(scancode.rawValue)))!
+
+    /// 
+    /// Get the key code corresponding to the given scancode according to the
+    /// current keyboard layout.
+    /// 
+    /// If you want to get the keycode as it would be delivered in key events,
+    /// including options specified in SDL_HINT_KEYCODE_OPTIONS, then you should
+    /// pass `key_event` as true. Otherwise this function simply translates the
+    /// scancode based on the given modifier state.
+    /// 
+    /// \param scancode the desired SDL_Scancode to query.
+    /// \param modifiers the modifier state to use when translating the scancode to
+    ///                 a keycode.
+    /// \param forKeyEvent true if the keycode will be used in key events.
+    /// \returns the SDL_Keycode that corresponds to the given SDL_Scancode.
+    /// 
+    /// \since This function is available since SDL 3.2.0.
+    /// 
+    /// \sa SDL_GetKeyName
+    /// \sa SDL_GetScancodeFromKey
+    /// 
+    @SDLKeyConversionActor
+    public static func from(scancode: SDLScancode, modifiers: SDLKeyModifiers, forKeyEvent: Bool) -> SDLKeycode {
+        return SDLKeycode(rawValue: SDL_GetKeyFromScancode(SDL_Scancode(scancode.rawValue), modifiers.rawValue, forKeyEvent))!
     }
-    public static func from(name: String) -> SDLKeycode {
-        return SDLKeycode(rawValue: SDL_GetKeyFromName(name))!
+
+    /// 
+    /// Get a key code from a human-readable name.
+    /// 
+    /// \param name the human-readable key name.
+    /// \returns key code, or `SDLK_UNKNOWN` if the name wasn't recognized; call
+    ///          SDL_GetError() for more information.
+    /// 
+    /// \since This function is available since SDL 3.2.0.
+    /// 
+    /// \sa SDL_GetKeyFromScancode
+    /// \sa SDL_GetKeyName
+    /// \sa SDL_GetScancodeFromName
+    /// 
+    @SDLKeyConversionActor
+    public static func from(name: String) throws -> SDLKeycode {
+        let k = SDL_GetKeyFromName(name)
+        if k == SDLK_UNKNOWN {
+            throw SDLError()
+        }
+        return SDLKeycode(rawValue: k)!
     }
+
+    /// 
+    /// Get a human-readable name for a key.
+    /// 
+    /// If the key doesn't have a name, this function returns an empty string ("").
+    /// 
+    /// Letters will be presented in their uppercase form, if applicable.
+    /// 
+    /// \returns a UTF-8 encoded string of the key name.
+    /// 
+    /// \since This function is available since SDL 3.2.0.
+    /// 
+    /// \sa SDL_GetKeyFromName
+    /// \sa SDL_GetKeyFromScancode
+    /// \sa SDL_GetScancodeFromKey
+    /// 
+    @SDLKeyConversionActor
     public var name: String {
         return String(cString: SDL_GetKeyName(SDL_Keycode(UInt32(self.rawValue))))
     }

@@ -77,32 +77,26 @@ public struct SDLMessageBox {
             let arr = UnsafeMutablePointer<SDL_MessageBoxButtonData>.allocate(capacity: boxData.buttons.count)
             for i in 0..<boxData.buttons.count {
                 let v = boxData.buttons[i]
-                v.text.withCString {_text in
-                    let str = UnsafeMutablePointer<CChar>.allocate(capacity: v.text.count + 1)
-                    str.initialize(from: _text, count: v.text.count + 1)
-                    arr[i] = SDL_MessageBoxButtonData(flags: v.defaultButton.rawValue, buttonID: v.buttonID, text: str)
-                }
+                let str = UnsafeMutablePointer<CChar>.allocate(capacity: v.text.count + 1)
+                str.initialize(from: v.text, count: v.text.count + 1)
+                arr[i] = SDL_MessageBoxButtonData(flags: v.defaultButton.rawValue, buttonID: v.buttonID, text: str)
             }
             pointer = UnsafeMutablePointer<SDL_MessageBoxData>.allocate(capacity: 1)
-            boxData.title.withCString {_title in
-                boxData.message.withCString {_message in
-                    let titleStr = UnsafeMutablePointer<CChar>.allocate(capacity: boxData.title.count + 1)
-                    titleStr.initialize(from: _title, count: boxData.title.count + 1)
-                    let messageStr = UnsafeMutablePointer<CChar>.allocate(capacity: boxData.message.count + 1)
-                    messageStr.initialize(from: _message, count: boxData.message.count + 1)
-                    pointer.pointee = SDL_MessageBoxData(flags: boxData.boxType.rawValue | boxData.buttonOrder.rawValue, window: boxData.window?.window, title: _title, message: _message, numbuttons: Int32(boxData.buttons.count), buttons: arr, colorScheme: nil)
-                    if let scheme = boxData.colorScheme {
-                        let p = UnsafeMutablePointer<SDL_MessageBoxColorScheme>.allocate(capacity: 1)
-                        p.pointee.colors = (
-                            SDL_MessageBoxColor(r: scheme.background.red, g: scheme.background.green, b: scheme.background.blue),
-                            SDL_MessageBoxColor(r: scheme.text.red, g: scheme.text.green, b: scheme.text.blue),
-                            SDL_MessageBoxColor(r: scheme.buttonBorder.red, g: scheme.buttonBorder.green, b: scheme.buttonBorder.blue),
-                            SDL_MessageBoxColor(r: scheme.buttonBackground.red, g: scheme.buttonBackground.green, b: scheme.buttonBackground.blue),
-                            SDL_MessageBoxColor(r: scheme.selectedButton.red, g: scheme.selectedButton.green, b: scheme.selectedButton.blue)
-                        )
-                        self.pointer.pointee.colorScheme = UnsafePointer<SDL_MessageBoxColorScheme>(p)
-                    }
-                }
+            let titleStr = UnsafeMutablePointer<CChar>.allocate(capacity: boxData.title.count + 1)
+            titleStr.initialize(from: boxData.title, count: boxData.title.count + 1)
+            let messageStr = UnsafeMutablePointer<CChar>.allocate(capacity: boxData.message.count + 1)
+            messageStr.initialize(from: boxData.message, count: boxData.message.count + 1)
+            pointer.pointee = SDL_MessageBoxData(flags: boxData.boxType.rawValue | boxData.buttonOrder.rawValue, window: boxData.window?.window, title: titleStr, message: messageStr, numbuttons: Int32(boxData.buttons.count), buttons: arr, colorScheme: nil)
+            if let scheme = boxData.colorScheme {
+                let p = UnsafeMutablePointer<SDL_MessageBoxColorScheme>.allocate(capacity: 1)
+                p.pointee.colors = (
+                    SDL_MessageBoxColor(r: scheme.background.red, g: scheme.background.green, b: scheme.background.blue),
+                    SDL_MessageBoxColor(r: scheme.text.red, g: scheme.text.green, b: scheme.text.blue),
+                    SDL_MessageBoxColor(r: scheme.buttonBorder.red, g: scheme.buttonBorder.green, b: scheme.buttonBorder.blue),
+                    SDL_MessageBoxColor(r: scheme.buttonBackground.red, g: scheme.buttonBackground.green, b: scheme.buttonBackground.blue),
+                    SDL_MessageBoxColor(r: scheme.selectedButton.red, g: scheme.selectedButton.green, b: scheme.selectedButton.blue)
+                )
+                self.pointer.pointee.colorScheme = UnsafePointer<SDL_MessageBoxColorScheme>(p)
             }
         }
         deinit {
@@ -312,6 +306,14 @@ public class SDLWindow: Equatable {
         }
     }
 
+    /// 
+    /// Query the window which currently has keyboard focus.
+    /// 
+    /// - Returns: the window with keyboard focus.
+    /// 
+    /// - Since: This function is available since SDL 3.2.0.
+    /// 
+    @MainActor
     public static var keyboardFocus: SDLWindow? {
         if let _window = nullCheck(SDL_GetKeyboardFocus()) {
             return SDLWindow(rawValue: _window, owned: false)
@@ -490,16 +492,27 @@ public class SDLWindow: Equatable {
         }
     }
 
-    public init(withRendererNamed title: String, width: Int32, height: Int32, flags: Flags) throws {
+    /// 
+    /// Create a window and default renderer.
+    /// 
+    /// - Parameter title: the title of the window, in UTF-8 encoding.
+    /// - Parameter width: the width of the window.
+    /// - Parameter height: the height of the window.
+    /// - Parameter flags: the flags used to create the window (see
+    ///                     SDL_CreateWindow()).
+    /// 
+    /// - Since: This function is available since SDL 3.2.0.
+    /// 
+    /// - See also: SDL_CreateRenderer
+    /// - See also: SDL_CreateWindow
+    /// 
+    @MainActor public init(withRendererNamed title: String, width: Int32, height: Int32, flags: Flags) throws {
         var ren: OpaquePointer?
         var win: OpaquePointer?
-        let ok = title.withCString {_title in
-            SDL_CreateWindowAndRenderer(_title, width, height, flags.rawValue, &win, &ren)
-        }
-        if ok {
+        if SDL_CreateWindowAndRenderer(title, width, height, flags.rawValue, &win, &ren) {
             window = win!
             owned = true
-            _renderer = SDLRenderer(rawValue: ren!)
+            renderer = SDLRenderer(rawValue: ren!)
         } else {
             throw SDLError()
         }
@@ -509,23 +522,12 @@ public class SDLWindow: Equatable {
 
     deinit {
         if owned {
-            _renderer = nil
+            renderer = nil
             SDL_DestroyWindow(window)
         }
     }
 
-    private var _renderer: SDLRenderer? = nil
-    public var renderer: SDLRenderer! {
-        if let r = _renderer {
-            return r
-        }
-        if let ren = SDL_CreateRenderer(window, nil) {
-            _renderer = SDLRenderer(rawValue: ren)
-            _renderer!.window = self
-            return _renderer!
-        }
-        return nil
-    }
+    private(set) var renderer: SDLRenderer? = nil
 
     @MainActor
     public var alwaysOnTop: Bool {
@@ -1582,6 +1584,18 @@ public class SDLWindow: Equatable {
         }
     }
 
+    /// 
+    /// Check whether the screen keyboard is shown for given window.
+    /// 
+    /// - Returns: true if screen keyboard is shown or false if not.
+    /// 
+    /// - Warning:  This function should only be called on the main thread.
+    /// 
+    /// - Since: This function is available since SDL 3.2.0.
+    /// 
+    /// - See also: SDL_HasScreenKeyboardSupport
+    /// 
+    @MainActor
     public var screenKeyboardShown: Bool {
         return SDL_ScreenKeyboardShown(window)
     }
@@ -2401,16 +2415,197 @@ public class SDLWindow: Equatable {
         }
     }
 
-    public func createRenderer(with driver: String) throws -> SDLRenderer {
-        if let r = _renderer {
-            return r
+    /// 
+    /// Create a 2D rendering context for a window.
+    /// 
+    /// If you want a specific renderer, you can specify its name here. A list of
+    /// available renderers can be obtained by calling SDL_GetRenderDriver()
+    /// multiple times, with indices from 0 to SDL_GetNumRenderDrivers()-1. If you
+    /// don't need a specific renderer, specify NULL and SDL will attempt to choose
+    /// the best option for you, based on what is available on the user's system.
+    /// 
+    /// If `name` is a comma-separated list, SDL will try each name, in the order
+    /// listed, until one succeeds or all of them fail.
+    /// 
+    /// By default the rendering size matches the window size in pixels, but you
+    /// can call SDL_SetRenderLogicalPresentation() to change the content size and
+    /// scaling options.
+    /// 
+    /// - Parameter with: the name of the rendering driver to initialize, or NULL to let
+    ///             SDL choose one.
+    /// - Returns: a valid rendering context or NULL if there was an error; call
+    ///          SDL_GetError() for more information.
+    /// 
+    /// - Since: This function is available since SDL 3.2.0.
+    /// 
+    /// - See also: SDL_CreateRendererWithProperties
+    /// - See also: SDL_CreateSoftwareRenderer
+    /// - See also: SDL_DestroyRenderer
+    /// - See also: SDL_GetNumRenderDrivers
+    /// - See also: SDL_GetRenderDriver
+    /// - See also: SDL_GetRendererName
+    /// 
+    @MainActor public func createRenderer(with driver: String) throws -> SDLRenderer {
+        if let r = renderer {
+            return r // TODO: should we error?
         }
         if let ren = SDL_CreateRenderer(window, driver) {
-            _renderer = SDLRenderer(rawValue: ren)
-            _renderer!.window = self
-            return _renderer!
+            renderer = SDLRenderer(rawValue: ren)
+            renderer!.window = self
+            return renderer!
         } else {
             throw SDLError()
+        }
+    }
+
+    // TODO: SDL_CreateRendererWithProperties
+
+    /// 
+    /// Start accepting Unicode text input events in a window.
+    /// 
+    /// This function will enable text input (SDL_EVENT_TEXT_INPUT and
+    /// SDL_EVENT_TEXT_EDITING events) in the specified window. Please use this
+    /// function paired with SDL_StopTextInput().
+    /// 
+    /// Text input events are not received by default.
+    /// 
+    /// On some platforms using this function shows the screen keyboard and/or
+    /// activates an IME, which can prevent some key press events from being passed
+    /// through.
+    /// 
+    /// - Throws: ``SDLError`` if the function fails.
+    /// 
+    /// - Warning: This function should only be called on the main thread.
+    /// 
+    /// - Since: This function is available since SDL 3.2.0.
+    /// 
+    /// - See also: SDL_SetTextInputArea
+    /// - See also: SDL_StartTextInputWithProperties
+    /// - See also: SDL_StopTextInput
+    /// - See also: SDL_TextInputActive
+    /// 
+    @MainActor
+    public func startTextInput() throws {
+        if !SDL_StartTextInput(window) {
+            throw SDLError()
+        }
+    }
+
+    // TODO: SDL_StartTextInputWithProperties
+
+    /// 
+    /// Check whether or not Unicode text input events are enabled for a window.
+    /// 
+    /// - Returns: true if text input events are enabled else false.
+    ///
+    /// - Warning: This function should only be called on the main thread.
+    /// 
+    /// - Since This function is available since SDL 3.2.0.
+    /// 
+    /// - See also: SDL_StartTextInput
+    /// 
+    @MainActor
+    public var textInputActive: Bool {
+        return SDL_TextInputActive(window)
+    }
+
+    /// 
+    /// Stop receiving any text input events in a window.
+    /// 
+    /// If SDL_StartTextInput() showed the screen keyboard, this function will hide
+    /// it.
+    /// 
+    /// - Throws: ``SDLError`` if the function fails.
+    /// 
+    /// - Warning: This function should only be called on the main thread.
+    /// 
+    /// - Since: This function is available since SDL 3.2.0.
+    /// 
+    /// - See also: SDL_StartTextInput
+    /// 
+    @MainActor
+    public func stopTextInput() throws {
+        if !SDL_StopTextInput(window) {
+            throw SDLError()
+        }
+    }
+
+    /// 
+    /// Dismiss the composition window/IME without disabling the subsystem.
+    /// 
+    /// - Throws: ``SDLError`` if the function fails.
+    /// 
+    /// - Warning: This function should only be called on the main thread.
+    /// 
+    /// - Since: This function is available since SDL 3.2.0.
+    /// 
+    /// - See also: SDL_StartTextInput
+    /// - See also: SDL_StopTextInput
+    /// 
+    @MainActor
+    public func clearComposition() throws {
+        if !SDL_ClearComposition(window) {
+            throw SDLError()
+        }
+    }
+
+    /// 
+    /// Get the area used to type Unicode text input.
+    /// 
+    /// This returns the values previously set by SDL_SetTextInputArea().
+    /// 
+    /// - Returns: an SDLRect filled in with the text input area,
+    ///            and the offset of the current cursor location
+    ///            relative to `rect.x`.
+    /// - Throws: ``SDLError`` if the function fails.
+    /// 
+    /// - Warning: This function should only be called on the main thread.
+    /// 
+    /// - Since: This function is available since SDL 3.2.0.
+    /// 
+    /// - See also: SDL_SetTextInputArea
+    /// 
+    @MainActor
+    public var textInputArea: (SDLRect, Int) {
+        get throws {
+            var rect = SDL_Rect()
+            var cursor: Int32 = 0
+            if !SDL_GetTextInputArea(window, &rect, &cursor) {
+                throw SDLError()
+            }
+            return (SDLRect(from: rect), Int(cursor))
+        }
+    }
+
+    /// 
+    /// Set the area used to type Unicode text input.
+    /// 
+    /// Native input methods may place a window with word suggestions near the
+    /// cursor, without covering the text being entered.
+    /// 
+    /// - Parameter rect: the SDL_Rect representing the text input area, in window
+    ///             coordinates, or NULL to clear it.
+    /// - Parameter cursor: the offset of the current cursor location relative to
+    ///               `rect->x`, in window coordinates.
+    /// - Throws: ``SDLError`` if the function fails.
+    /// 
+    /// - Warning: This function should only be called on the main thread.
+    /// 
+    /// - Since: This function is available since SDL 3.2.0.
+    /// 
+    /// - See also: SDL_GetTextInputArea
+    /// - See also: SDL_StartTextInput
+    /// 
+    @MainActor
+    public func set(textInputArea value: SDLRect?, cursor: Int) throws {
+        if var rect = value?.sdlRect {
+            if !SDL_SetTextInputArea(window, &rect, Int32(cursor)) {
+                throw SDLError()
+            }
+        } else {
+            if !SDL_SetTextInputArea(window, nil, Int32(cursor)) {
+                throw SDLError()
+            }
         }
     }
 
@@ -2426,3 +2621,80 @@ fileprivate func hitTestCallback(_ window: OpaquePointer!, _ area: UnsafePointer
     }
     return SDL_HITTEST_NORMAL
 }
+
+#if canImport(Metal)
+
+import Metal
+import QuartzCore
+
+public class SDLMetalView {
+    private let pointer: OpaquePointer!
+    private let window: SDLWindow // retain the window to keep it from being destroyed while this is alive
+    internal init(from ptr: OpaquePointer!, for win: SDLWindow) {
+        self.pointer = ptr
+        self.window = win
+    }
+    deinit {
+        SDL_Metal_DestroyView(pointer)
+    }
+    /// 
+    /// Get the backing CAMetalLayer for the given view.
+    /// 
+    /// - Returns: the layer.
+    /// 
+    /// \since This function is available since SDL 3.2.0.
+    /// 
+    public var layer: CAMetalLayer {
+        return SDL_Metal_GetLayer(pointer)!.assumingMemoryBound(to: CAMetalLayer.self).pointee
+    }
+}
+
+public extension SDLWindow {
+    /// 
+    /// Create a CAMetalLayer-backed NSView/UIView and attach it to the specified
+    /// window.
+    /// 
+    /// On macOS, this does *not* associate a MTLDevice with the CAMetalLayer on
+    /// its own. It is up to user code to do that.
+    /// 
+    /// The returned handle can be casted directly to a NSView or UIView. To access
+    /// the backing CAMetalLayer, call SDL_Metal_GetLayer().
+    /// 
+    /// \returns handle NSView or UIView.
+    /// 
+    /// \since This function is available since SDL 3.2.0.
+    /// 
+    /// \sa SDL_Metal_DestroyView
+    /// \sa SDL_Metal_GetLayer
+    /// 
+    @MainActor
+    func createMetalView() -> SDLMetalView {
+        return SDLMetalView(from: SDL_Metal_CreateView(window), for: self)
+    }
+}
+
+#if canImport(AppKit)
+
+import AppKit
+
+public extension SDLMetalView {
+    /// Returns the underlying view object for the SDLMetalView.
+    var view: NSView {
+        return Unmanaged<NSView>.fromOpaque(pointer).passUnretained()
+    }
+}
+
+#elseif canImport(UIKit)
+
+import UIKit
+
+public extension SDLMetalView {
+    /// Returns the underlying view object for the SDLMetalView.
+    var view: UIView {
+        return Unmanaged<UIView>.fromOpaque(pointer).passUnretained()
+    }
+}
+
+#endif
+
+#endif

@@ -539,10 +539,8 @@ public actor SDLIOStream {
     /// - See: SDL_WriteIO
     /// 
     public func printf(with format: String, _ args: any CVarArg...) throws {
-        let count = format.withCString {_format in
-            withVaList(args) { _args in
-                SDL_IOvprintf(self.sdlIOStream, _format, _args)
-            }
+        let count = withVaList(args) { _args in
+            SDL_IOvprintf(self.sdlIOStream, format, _args)
         }
         if count == 0 {
             throw SDLError()
@@ -671,9 +669,7 @@ public actor SDLIOStream {
     @IOStreamActor
     public static func save(to path: String, data: [UInt8]) throws {
         guard let ok = data.withContiguousStorageIfAvailable({ _data in
-            path.withCString { _path in
-                SDL_SaveFile(path, _data.baseAddress, data.count)
-            }
+            SDL_SaveFile(path, _data.baseAddress, data.count)
         }) else {throw SDLError(message: "Could not get contiguous storage")}
         if !ok {
             throw SDLError()

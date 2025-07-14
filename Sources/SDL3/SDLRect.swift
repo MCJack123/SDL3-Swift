@@ -170,6 +170,18 @@ public struct SDLFPoint: Equatable {
     }
 }
 
+public struct SDLFSize: Equatable {
+    public var width: Float = 0
+    public var height: Float = 0
+
+    public init() {}
+
+    public init(width _width: Float, height _height: Float) {
+        width = _width
+        height = _height
+    }
+}
+
 internal extension SDL_FRect {
     static let NULL = UnsafePointer<SDL_FRect>(bitPattern: 0)
 }
