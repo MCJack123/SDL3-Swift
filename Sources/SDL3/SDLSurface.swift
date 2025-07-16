@@ -39,7 +39,7 @@ public class SDLSurface {
     /// - Since: This datatype is available since SDL 3.2.0.
     /// 
     /// - See: SDL_ComposeCustomBlendMode
-    /// 
+    ///
     public struct BlendMode: OptionSet {
         public let rawValue: UInt32
         public init(rawValue val: UInt32) {rawValue = val}
@@ -152,12 +152,12 @@ public class SDLSurface {
             alphaOperation: BlendOperation
         ) {
             rawValue = SDL_ComposeCustomBlendMode(
-                SDL_BlendFactor(rawValue: srcColorFactor.rawValue),
-                SDL_BlendFactor(rawValue: dstColorFactor.rawValue),
-                SDL_BlendOperation(rawValue: colorOperation.rawValue),
-                SDL_BlendFactor(rawValue: srcAlphaFactor.rawValue),
-                SDL_BlendFactor(rawValue: dstAlphaFactor.rawValue),
-                SDL_BlendOperation(rawValue: alphaOperation.rawValue)
+                srcColorFactor.sdlValue,
+                dstColorFactor.sdlValue,
+                colorOperation.sdlValue,
+                srcAlphaFactor.sdlValue,
+                dstAlphaFactor.sdlValue,
+                alphaOperation.sdlValue
             )
         }
     }
@@ -167,7 +167,8 @@ public class SDLSurface {
     /// components.
     /// 
     /// - Since: This enum is available since SDL 3.2.0.
-    /// 
+    ///
+    @EnumWrapper(SDL_BlendOperation.self)
     public enum BlendOperation: UInt32 {
         /// dst + src: supported by all renderers
         case add = 1
@@ -190,7 +191,8 @@ public class SDLSurface {
     /// the component order red, green, blue, and alpha.
     /// 
     /// - Since: This enum is available since SDL 3.2.0.
-    /// 
+    ///
+    @EnumWrapper(SDL_BlendFactor.self)
     public enum BlendFactor: UInt32 {
         /// 0, 0, 0, 0
         case zero = 1
@@ -218,7 +220,8 @@ public class SDLSurface {
     /// The flip mode.
     /// 
     /// - Since: This enum is available since SDL 3.2.0.
-    /// 
+    ///
+    @EnumWrapper(SDL_FlipMode.self)
     public enum FlipMode: UInt32 {
         /// Do not flip
         case none
@@ -232,7 +235,8 @@ public class SDLSurface {
     /// The scaling mode.
     /// 
     /// - Since: This enum is available since SDL 3.2.0.
-    /// 
+    ///
+    @EnumWrapper(SDL_ScaleMode.self)
     public enum ScaleMode: UInt32 {
         /// nearest pixel sampling
         case nearest
@@ -843,21 +847,21 @@ public class SDLSurface {
     public func blitScaled(from src: SDLSurface, in srcRect: SDLRect?, to destRect: SDLRect?, with mode: ScaleMode) throws {
         if var sr = srcRect?.sdlRect {
             if var dr = destRect?.sdlRect {
-                if !SDL_BlitSurfaceScaled(src.surf, &sr, self.surf, &dr, SDL_ScaleMode(rawValue: mode.rawValue)) {
+                if !SDL_BlitSurfaceScaled(src.surf, &sr, self.surf, &dr, mode.sdlValue) {
                     throw SDLError()
                 }
             } else {
-                if !SDL_BlitSurfaceScaled(src.surf, &sr, self.surf, nil, SDL_ScaleMode(rawValue: mode.rawValue)) {
+                if !SDL_BlitSurfaceScaled(src.surf, &sr, self.surf, nil, mode.sdlValue) {
                     throw SDLError()
                 }
             }
         } else {
             if var dr = destRect?.sdlRect {
-                if !SDL_BlitSurfaceScaled(src.surf, nil, self.surf, &dr, SDL_ScaleMode(rawValue: mode.rawValue)) {
+                if !SDL_BlitSurfaceScaled(src.surf, nil, self.surf, &dr, mode.sdlValue) {
                     throw SDLError()
                 }
             } else {
-                if !SDL_BlitSurfaceScaled(src.surf, nil, self.surf, nil, SDL_ScaleMode(rawValue: mode.rawValue)) {
+                if !SDL_BlitSurfaceScaled(src.surf, nil, self.surf, nil, mode.sdlValue) {
                     throw SDLError()
                 }
             }
@@ -885,7 +889,7 @@ public class SDLSurface {
     /// 
     public func stretch(from src: SDLSurface, in srcRect: SDLRect, to destRect: SDLRect, with mode: ScaleMode) throws {
         var sr = srcRect.sdlRect, dr = destRect.sdlRect
-        if !SDL_StretchSurface(src.surf, &sr, self.surf, &dr, SDL_ScaleMode(rawValue: mode.rawValue)) {
+        if !SDL_StretchSurface(src.surf, &sr, self.surf, &dr, mode.sdlValue) {
             throw SDLError()
         }
     }
@@ -965,21 +969,21 @@ public class SDLSurface {
     public func blitTiled(from src: SDLSurface, in srcRect: SDLRect?, to destRect: SDLRect?, with scale: Float, mode: ScaleMode) throws {
         if var sr = srcRect?.sdlRect {
             if var dr = destRect?.sdlRect {
-                if !SDL_BlitSurfaceTiledWithScale(src.surf, &sr, scale, SDL_ScaleMode(rawValue: mode.rawValue), self.surf, &dr) {
+                if !SDL_BlitSurfaceTiledWithScale(src.surf, &sr, scale, mode.sdlValue, self.surf, &dr) {
                     throw SDLError()
                 }
             } else {
-                if !SDL_BlitSurfaceTiledWithScale(src.surf, &sr, scale, SDL_ScaleMode(rawValue: mode.rawValue), self.surf, nil) {
+                if !SDL_BlitSurfaceTiledWithScale(src.surf, &sr, scale, mode.sdlValue, self.surf, nil) {
                     throw SDLError()
                 }
             }
         } else {
             if var dr = destRect?.sdlRect {
-                if !SDL_BlitSurfaceTiledWithScale(src.surf, nil, scale, SDL_ScaleMode(rawValue: mode.rawValue), self.surf, &dr) {
+                if !SDL_BlitSurfaceTiledWithScale(src.surf, nil, scale, mode.sdlValue, self.surf, &dr) {
                     throw SDLError()
                 }
             } else {
-                if !SDL_BlitSurfaceTiledWithScale(src.surf, nil, scale, SDL_ScaleMode(rawValue: mode.rawValue), self.surf, nil) {
+                if !SDL_BlitSurfaceTiledWithScale(src.surf, nil, scale, mode.sdlValue, self.surf, nil) {
                     throw SDLError()
                 }
             }
@@ -1022,21 +1026,21 @@ public class SDLSurface {
     public func blit9Grid(from src: SDLSurface, in srcRect: SDLRect?, to destRect: SDLRect?, leftWidth: Int32, rightWidth: Int32, topHeight: Int32, bottomHeight: Int32, with scale: Float, mode: ScaleMode) throws {
         if var sr = srcRect?.sdlRect {
             if var dr = destRect?.sdlRect {
-                if !SDL_BlitSurface9Grid(src.surf, &sr, leftWidth, rightWidth, topHeight, bottomHeight, scale, SDL_ScaleMode(rawValue: mode.rawValue), self.surf, &dr) {
+                if !SDL_BlitSurface9Grid(src.surf, &sr, leftWidth, rightWidth, topHeight, bottomHeight, scale, mode.sdlValue, self.surf, &dr) {
                     throw SDLError()
                 }
             } else {
-                if !SDL_BlitSurface9Grid(src.surf, &sr, leftWidth, rightWidth, topHeight, bottomHeight, scale, SDL_ScaleMode(rawValue: mode.rawValue), self.surf, nil) {
+                if !SDL_BlitSurface9Grid(src.surf, &sr, leftWidth, rightWidth, topHeight, bottomHeight, scale, mode.sdlValue, self.surf, nil) {
                     throw SDLError()
                 }
             }
         } else {
             if var dr = destRect?.sdlRect {
-                if !SDL_BlitSurface9Grid(src.surf, nil, leftWidth, rightWidth, topHeight, bottomHeight, scale, SDL_ScaleMode(rawValue: mode.rawValue), self.surf, &dr) {
+                if !SDL_BlitSurface9Grid(src.surf, nil, leftWidth, rightWidth, topHeight, bottomHeight, scale, mode.sdlValue, self.surf, &dr) {
                     throw SDLError()
                 }
             } else {
-                if !SDL_BlitSurface9Grid(src.surf, nil, leftWidth, rightWidth, topHeight, bottomHeight, scale, SDL_ScaleMode(rawValue: mode.rawValue), self.surf, nil) {
+                if !SDL_BlitSurface9Grid(src.surf, nil, leftWidth, rightWidth, topHeight, bottomHeight, scale, mode.sdlValue, self.surf, nil) {
                     throw SDLError()
                 }
             }
@@ -1142,7 +1146,7 @@ public class SDLSurface {
     /// - Since: This function is available since SDL 3.2.0.
     /// 
     public func flip(in direction: FlipMode) throws {
-        if !SDL_FlipSurface(surf, SDL_FlipMode(direction.rawValue)) {
+        if !SDL_FlipSurface(surf, direction.sdlValue) {
             throw SDLError()
         }
     }
@@ -1162,7 +1166,7 @@ public class SDLSurface {
     /// - See: SDL_DestroySurface
     /// 
     public func scale(width: Int32, height: Int32, scaleMode: ScaleMode) throws -> SDLSurface {
-        if let ptr = nullCheck(SDL_ScaleSurface(surf, width, height, SDL_ScaleMode(scaleMode.rawValue))) {
+        if let ptr = nullCheck(SDL_ScaleSurface(surf, width, height, scaleMode.sdlValue)) {
             return SDLSurface(from: ptr, owned: true)
         } else {
             throw SDLError()

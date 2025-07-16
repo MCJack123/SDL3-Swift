@@ -68,7 +68,8 @@ public actor SDLIOStream {
     /// standard C runtime.
     /// 
     /// - Since: This enum is available since SDL 3.2.0.
-    /// 
+    ///
+    @EnumWrapper(SDL_IOWhence.self)
     public enum SeekWhence: UInt32 {
         case set
         case current
@@ -79,7 +80,8 @@ public actor SDLIOStream {
     /// SDL_IOStream status, set by a read or write operation.
     /// 
     /// - Since: This enum is available since SDL 3.2.0.
-    /// 
+    ///
+    @EnumWrapper(SDL_IOStatus.self)
     public enum Status: UInt32 {
         case ready
         case error
@@ -374,7 +376,7 @@ public actor SDLIOStream {
     /// - Since: This function is available since SDL 3.2.0.
     /// 
     public var status: Status {
-        return Status(rawValue: SDL_GetIOStatus(sdlIOStream).rawValue)!
+        return .sdl(SDL_GetIOStatus(sdlIOStream))
     }
 
     /// 
@@ -422,7 +424,7 @@ public actor SDLIOStream {
     /// - See: SDL_TellIO
     /// 
     public func seek(to offset: Int64, from whence: SeekWhence) -> Int64 {
-        return SDL_SeekIO(sdlIOStream, offset, SDL_IOWhence(rawValue: whence.rawValue))
+        return SDL_SeekIO(sdlIOStream, offset, whence.sdlValue)
     }
 
     /// 
@@ -1342,27 +1344,27 @@ fileprivate func IOStream_size(_ context: UnsafeMutableRawPointer?) -> Int64 {
 
 fileprivate func IOStream_seek(_ context: UnsafeMutableRawPointer?, _ offset: Int64, _ whence: SDL_IOWhence) -> Int64 {
     let delegate = Unmanaged<SDLIOStreamDelegateBox>.fromOpaque(context!).takeUnretainedValue().delegate
-    return delegate.seek(offset: offset, whence: SDLIOStream.SeekWhence(rawValue: whence.rawValue)!)
+    return delegate.seek(offset: offset, whence: .sdl(whence))
 }
 
 fileprivate func IOStream_read(_ context: UnsafeMutableRawPointer?, _ ptr: UnsafeMutableRawPointer?, _ size: Int, _ status: UnsafeMutablePointer<SDL_IOStatus>?) -> Int {
     let delegate = Unmanaged<SDLIOStreamDelegateBox>.fromOpaque(context!).takeUnretainedValue().delegate
     let res = delegate.read(into: ptr!, size: size)
-    status!.pointee = SDL_IOStatus(rawValue: res.0.rawValue)
+    status!.pointee = res.0.sdlValue
     return res.1
 }
 
 fileprivate func IOStream_write(_ context: UnsafeMutableRawPointer?, _ ptr: UnsafeRawPointer?, _ size: Int, _ status: UnsafeMutablePointer<SDL_IOStatus>?) -> Int {
     let delegate = Unmanaged<SDLIOStreamDelegateBox>.fromOpaque(context!).takeUnretainedValue().delegate
     let res = delegate.write(from: ptr!, size: size)
-    status!.pointee = SDL_IOStatus(rawValue: res.0.rawValue)
+    status!.pointee = res.0.sdlValue
     return res.1
 }
 
 fileprivate func IOStream_flush(_ context: UnsafeMutableRawPointer?, _ status: UnsafeMutablePointer<SDL_IOStatus>?) -> Bool {
     let delegate = Unmanaged<SDLIOStreamDelegateBox>.fromOpaque(context!).takeUnretainedValue().delegate
     let res = delegate.flush()
-    status!.pointee = SDL_IOStatus(rawValue: res.0.rawValue)
+    status!.pointee = res.0.sdlValue
     return res.1
 }
 

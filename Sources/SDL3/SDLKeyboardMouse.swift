@@ -11,6 +11,7 @@ public struct SDLMouseButtons: OptionSet {
 }
 
 public class SDLCursor {
+    @EnumWrapper(SDL_SystemCursor.self)
     public enum SystemCursor: UInt32 {
         case arrow = 0
         case Ibeam = 1
@@ -85,7 +86,7 @@ public class SDLCursor {
     }
 
     public init(systemCursor id: SystemCursor) throws {
-        if let ptr = SDL_CreateSystemCursor(SDL_SystemCursor(rawValue: id.rawValue)) {
+        if let ptr = SDL_CreateSystemCursor(id.sdlValue) {
             pointer = ptr
             owned = true
         } else {

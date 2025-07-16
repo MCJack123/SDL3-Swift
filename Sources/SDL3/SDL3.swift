@@ -1,4 +1,5 @@
 import SDL3_Native
+import SDL3Macros
 
 public struct SDLError: Error {
     public let message: String
@@ -48,6 +49,9 @@ internal extension UnsafeMutablePointer {
         return (UnsafeMutableRawPointer(self) + offset).assumingMemoryBound(to: Property.self)
     }
 }
+
+@attached(extension, names: named(sdl), named(sdlValue))
+internal macro EnumWrapper(_ type: Any) = #externalMacro(module: "SDL3Macros", type: "EnumWrapper")
 
 public struct SDLInitFlags: OptionSet {
     public let rawValue: UInt32

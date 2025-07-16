@@ -14,6 +14,6 @@ let package = Package(
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
-        .systemLibrary(name: "SDL3_Native")
-    ]
+        .systemLibrary(name: "SDL3_Native", pkgConfig: "sdl3", providers: [.brewItem(["sdl3"]), .aptItem(["libsdl3-dev"])])
+    ],
 )

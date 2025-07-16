@@ -4,7 +4,8 @@ import SDL3_Native
 /// System theme.
 /// 
 /// - Since: This enum is available since SDL 3.2.0.
-/// 
+///
+@EnumWrapper(SDL_SystemTheme.self)
 public enum SDLSystemTheme: UInt32 {
     /// Unknown system theme
     case unknown = 0
@@ -24,7 +25,7 @@ public enum SDLSystemTheme: UInt32 {
     /// 
     @MainActor
     public static var current: SDLSystemTheme {
-        return SDLSystemTheme(rawValue: SDL_GetSystemTheme().rawValue)!
+        return .sdl(SDL_GetSystemTheme())
     }
 }
 
@@ -33,7 +34,8 @@ public struct SDLDisplay {
     /// Display orientation values; the way a display is rotated.
     /// 
     /// - Since: This enum is available since SDL 3.2.0.
-    /// 
+    ///
+    @EnumWrapper(SDL_DisplayOrientation.self)
     public enum Orientation: UInt32 {
         case unknown = 0
         case landscape = 1
@@ -292,7 +294,7 @@ public struct SDLDisplay {
     /// 
     @MainActor
     public var naturalOrientation: Orientation {
-        return Orientation(rawValue: SDL_GetNaturalDisplayOrientation(id).rawValue)!
+        return .sdl(SDL_GetNaturalDisplayOrientation(id))
     }
 
     /// 
@@ -309,7 +311,7 @@ public struct SDLDisplay {
     /// 
     @MainActor
     public var orientation: Orientation {
-        return Orientation(rawValue: SDL_GetCurrentDisplayOrientation(id).rawValue)!
+        return .sdl(SDL_GetCurrentDisplayOrientation(id))
     }
 
     /// 

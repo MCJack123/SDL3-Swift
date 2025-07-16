@@ -38,7 +38,8 @@ public class SDLTexture {
     /// The access pattern allowed for a texture.
     /// 
     /// - Since: This enum is available since SDL 3.2.0.
-    /// 
+    ///
+    @EnumWrapper(SDL_TextureAccess.self)
     public enum Access: Int32 {
         /// Changes rarely, not lockable
         case `static` = 0
@@ -343,7 +344,7 @@ public class SDLTexture {
             if !SDL_GetTextureScaleMode(texture, &mode) {
                 throw SDLError()
             }
-            return SDLSurface.ScaleMode(rawValue: mode.rawValue)!
+            return .sdl(mode)
         }
     }
 
@@ -363,7 +364,7 @@ public class SDLTexture {
     /// 
     @MainActor
     public func set(scaleMode value: SDLSurface.ScaleMode) throws {
-        if !SDL_SetTextureScaleMode(texture, SDL_ScaleMode(rawValue: value.rawValue)) {
+        if !SDL_SetTextureScaleMode(texture, value.sdlValue) {
             throw SDLError()
         }
     }
@@ -676,6 +677,7 @@ public class SDLTexture {
 /// - Since: This struct is available since SDL 3.2.0.
 /// 
 public class SDLRenderer {
+    @EnumWrapper(SDL_FlipMode.self)
     public struct FlipMode: OptionSet {
         public let rawValue: UInt32
         public init(rawValue val: UInt32) {rawValue = val}
@@ -688,7 +690,8 @@ public class SDLRenderer {
     /// How the logical size is mapped to the output.
     /// 
     /// - Since: This enum is available since SDL 3.2.0.
-    /// 
+    ///
+    @EnumWrapper(SDL_RendererLogicalPresentation.self)
     public enum LogicalPresentation: UInt32 {
         /// There is no logical size in effect
         case disabled = 0
@@ -911,7 +914,7 @@ public class SDLRenderer {
             if !SDL_GetRenderLogicalPresentation(renderer, &w, &h, &mode) {
                 throw SDLError()
             }
-            return (LogicalPresentation(rawValue: mode.rawValue)!, SDLSize(width: w, height: h))
+            return (.sdl(mode), SDLSize(width: w, height: h))
         }
     }
 
@@ -965,7 +968,7 @@ public class SDLRenderer {
     /// 
     @MainActor
     public func set(logicalPresentation mode: LogicalPresentation, size: SDLSize) throws {
-        if !SDL_SetRenderLogicalPresentation(renderer, size.width, size.height, SDL_RendererLogicalPresentation(rawValue: mode.rawValue)) {
+        if !SDL_SetRenderLogicalPresentation(renderer, size.width, size.height, mode.sdlValue) {
             throw SDLError()
         }
     }
@@ -1485,7 +1488,7 @@ public class SDLRenderer {
     /// 
     @MainActor
     public func texture(with format: SDLPixelFormat, access: SDLTexture.Access, width: Int32, height: Int32) throws -> SDLTexture {
-        if let t = SDL_CreateTexture(renderer, format.fmt, SDL_TextureAccess(rawValue: UInt32(access.rawValue)), width, height) {
+        if let t = SDL_CreateTexture(renderer, format.fmt, access.sdlValue, width, height) {
             return SDLTexture(rawValue: t, owned: true, renderer: self)
         } else {
             throw SDLError()
@@ -1879,21 +1882,21 @@ public class SDLRenderer {
         var centerp = center.sdlPoint
         if var src = from?.sdlRect {
             if var dst = to?.sdlRect {
-                if !SDL_RenderTextureRotated(renderer, texture.texture, &src, &dst, angle, &centerp, SDL_FlipMode(rawValue: flip.rawValue)) {
+                if !SDL_RenderTextureRotated(renderer, texture.texture, &src, &dst, angle, &centerp, flip.sdlValue) {
                     throw SDLError()
                 }
             } else {
-                if !SDL_RenderTextureRotated(renderer, texture.texture, &src, nil, angle, &centerp, SDL_FlipMode(rawValue: flip.rawValue)) {
+                if !SDL_RenderTextureRotated(renderer, texture.texture, &src, nil, angle, &centerp, flip.sdlValue) {
                     throw SDLError()
                 }
             }
         } else {
             if var dst = to?.sdlRect {
-                if !SDL_RenderTextureRotated(renderer, texture.texture, nil, &dst, angle, &centerp, SDL_FlipMode(rawValue: flip.rawValue)) {
+                if !SDL_RenderTextureRotated(renderer, texture.texture, nil, &dst, angle, &centerp, flip.sdlValue) {
                     throw SDLError()
                 }
             } else {
-                if !SDL_RenderTextureRotated(renderer, texture.texture, nil, nil, angle, &centerp, SDL_FlipMode(rawValue: flip.rawValue)) {
+                if !SDL_RenderTextureRotated(renderer, texture.texture, nil, nil, angle, &centerp, flip.sdlValue) {
                     throw SDLError()
                 }
             }

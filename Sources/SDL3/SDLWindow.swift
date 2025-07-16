@@ -248,7 +248,8 @@ public class SDLWindow: Equatable {
     /// Window flash operation.
     /// 
     /// - Since: This enum is available since SDL 3.2.0.
-    /// 
+    ///
+    @EnumWrapper(SDL_FlashOperation.self)
     public enum FlashOperation: UInt32 {
         case cancel = 0
         case briefly = 1
@@ -261,7 +262,8 @@ public class SDLWindow: Equatable {
     /// - Since: This enum is available since SDL 3.2.0.
     /// 
     /// - See: SDL_HitTest
-    /// 
+    ///
+    @EnumWrapper(SDL_HitTestResult.self)
     public enum HitTestResult: UInt32 {
         /// Region is normal. No special properties.
         case normal = 0
@@ -1743,7 +1745,7 @@ public class SDLWindow: Equatable {
     }
 
     public func flash(operation: FlashOperation) -> SDLError? {
-        if !SDL_FlashWindow(window, SDL_FlashOperation(rawValue: operation.rawValue)) {
+        if !SDL_FlashWindow(window, operation.sdlValue) {
             return SDLError()
         }
         return nil
@@ -2617,7 +2619,7 @@ public class SDLWindow: Equatable {
 fileprivate func hitTestCallback(_ window: OpaquePointer!, _ area: UnsafePointer<SDL_Point>!, _ data: UnsafeMutableRawPointer!) -> SDL_HitTestResult {
     let obj = Unmanaged<SDLWindow>.fromOpaque(data!).takeUnretainedValue()
     if let delegate = obj.hitTestDelegate {
-        return SDL_HitTestResult(rawValue: delegate.hitTest(in: obj, at: SDLPoint(from: area.pointee)).rawValue)
+        return delegate.hitTest(in: obj, at: SDLPoint(from: area.pointee)).sdlValue
     }
     return SDL_HITTEST_NORMAL
 }
@@ -2628,9 +2630,9 @@ import Metal
 import QuartzCore
 
 public class SDLMetalView {
-    private let pointer: OpaquePointer!
+    private let pointer: UnsafeMutableRawPointer!
     private let window: SDLWindow // retain the window to keep it from being destroyed while this is alive
-    internal init(from ptr: OpaquePointer!, for win: SDLWindow) {
+    internal init(from ptr: UnsafeMutableRawPointer!, for win: SDLWindow) {
         self.pointer = ptr
         self.window = win
     }
@@ -2680,7 +2682,7 @@ import AppKit
 public extension SDLMetalView {
     /// Returns the underlying view object for the SDLMetalView.
     var view: NSView {
-        return Unmanaged<NSView>.fromOpaque(pointer).passUnretained()
+        return Unmanaged<NSView>.fromOpaque(pointer).takeUnretainedValue()
     }
 }
 
@@ -2691,7 +2693,7 @@ import UIKit
 public extension SDLMetalView {
     /// Returns the underlying view object for the SDLMetalView.
     var view: UIView {
-        return Unmanaged<UIView>.fromOpaque(pointer).passUnretained()
+        return Unmanaged<UIView>.fromOpaque(pointer).takeUnretainedValue()
     }
 }
 
