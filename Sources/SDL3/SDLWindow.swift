@@ -529,7 +529,7 @@ public class SDLWindow: Equatable {
         }
     }
 
-    private(set) var renderer: SDLRenderer? = nil
+    public private(set) var renderer: SDLRenderer? = nil
 
     @MainActor
     public var alwaysOnTop: Bool {

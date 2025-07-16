@@ -1,5 +1,4 @@
 import SDL3_Native
-import SDL3Macros
 
 public struct SDLError: Error {
     public let message: String

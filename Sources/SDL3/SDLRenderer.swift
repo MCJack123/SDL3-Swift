@@ -40,7 +40,7 @@ public class SDLTexture {
     /// - Since: This enum is available since SDL 3.2.0.
     ///
     @EnumWrapper(SDL_TextureAccess.self)
-    public enum Access: Int32 {
+    public enum Access: UInt32 {
         /// Changes rarely, not lockable
         case `static` = 0
         /// Changes frequently, lockable
@@ -677,13 +677,18 @@ public class SDLTexture {
 /// - Since: This struct is available since SDL 3.2.0.
 /// 
 public class SDLRenderer {
-    @EnumWrapper(SDL_FlipMode.self)
     public struct FlipMode: OptionSet {
         public let rawValue: UInt32
         public init(rawValue val: UInt32) {rawValue = val}
         public static let none = FlipMode([])
         public static let horizontal = FlipMode(rawValue: 1)
         public static let vertical = FlipMode(rawValue: 2)
+        internal static func sdl(_ value: SDL_FlipMode) -> FlipMode {
+            return FlipMode(rawValue: value.rawValue)
+        }
+        internal var sdlValue: SDL_FlipMode {
+            return SDL_FlipMode(rawValue: rawValue)
+        }
     }
 
     /// 
