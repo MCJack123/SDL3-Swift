@@ -324,6 +324,16 @@ public class SDLWindow: Equatable {
         }
     }
 
+    /// 
+    /// Get the window which currently has mouse focus.
+    /// 
+    /// - Returns: the window with mouse focus.
+    /// 
+    /// - Warning: This function should only be called on the main thread.
+    /// 
+    /// - Since: This function is available since SDL 3.2.0.
+    /// 
+    @MainActor
     public static var mouseFocus: SDLWindow? {
         if let _window = nullCheck(SDL_GetMouseFocus()) {
             return SDLWindow(rawValue: _window, owned: false)
@@ -1522,6 +1532,53 @@ public class SDLWindow: Equatable {
 
     // TODO: SDL_GetWindowProperties
 
+    /// 
+    /// Query whether relative mouse mode is enabled for a window.
+    /// 
+    /// - Returns: true if relative mode is enabled for a window or false otherwise.
+    /// 
+    /// - Warning:  This function should only be called on the main thread.
+    /// 
+    /// - Since: This function is available since SDL 3.2.0.
+    /// 
+    /// - See: SDL_SetWindowRelativeMouseMode
+    /// 
+    @MainActor
+    public var relativeMouseMode: Bool {
+        return SDL_GetWindowRelativeMouseMode(window)
+    }
+
+    /// 
+    /// Set relative mouse mode for a window.
+    /// 
+    /// While the window has focus and relative mouse mode is enabled, the cursor
+    /// is hidden, the mouse position is constrained to the window, and SDL will
+    /// report continuous relative mouse motion even if the mouse is at the edge of
+    /// the window.
+    /// 
+    /// If you'd like to keep the mouse position fixed while in relative mode you
+    /// can use SDL_SetWindowMouseRect(). If you'd like the cursor to be at a
+    /// specific location when relative mode ends, you should use
+    /// SDL_WarpMouseInWindow() before disabling relative mode.
+    /// 
+    /// This function will flush any pending mouse motion for this window.
+    /// 
+    /// - Parameter relativeMouseMode: true to enable relative mode, false to disable.
+    /// - Throws: ``SDLError`` if the function fails.
+    /// 
+    /// - Warning: This function should only be called on the main thread.
+    /// 
+    /// - Since: This function is available since SDL 3.2.0.
+    /// 
+    /// - See: SDL_GetWindowRelativeMouseMode
+    /// 
+    @MainActor
+    public func set(relativeMouseMode value: Bool) throws {
+        if !SDL_SetWindowRelativeMouseMode(window, value) {
+            throw SDLError()
+        }
+    }
+
     @MainActor
     public var resizable: Bool {
         get {
@@ -2611,6 +2668,25 @@ public class SDLWindow: Equatable {
         }
     }
 
+    /// 
+    /// Move the mouse cursor to the given position within the window.
+    /// 
+    /// This function generates a mouse motion event if relative mode is not
+    /// enabled. If relative mode is enabled, you can force mouse events for the
+    /// warp by setting the SDL_HINT_MOUSE_RELATIVE_WARP_MOTION hint.
+    /// 
+    /// Note that this function will appear to succeed, but not actually move the
+    /// mouse when used over Microsoft Remote Desktop.
+    /// 
+    /// - Parameter to: the coordinates within the window.
+    /// 
+    /// - Warning: This function should only be called on the main thread.
+    /// 
+    /// - Since: This function is available since SDL 3.2.0.
+    /// 
+    /// - See: SDL_WarpMouseGlobal
+    /// 
+    @MainActor
     public func warpMouse(to point: SDLFPoint) {
         SDL_WarpMouseInWindow(window, point.x, point.y)
     }

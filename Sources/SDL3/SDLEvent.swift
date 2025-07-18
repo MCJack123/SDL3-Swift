@@ -32,24 +32,47 @@ public extension SDLEventType {
 }
 
 public protocol SDLWindowedEvent: SDLEventType {
-    var window: SDLWindow? {get set}
+    @MainActor var window: SDLWindow? {get}
+    var windowID: UInt32 {get set}
     init()
 }
 
-fileprivate var SDLEvent_delegate: SDLEventDelegate? = nil
+public extension SDLWindowedEvent {
+    @MainActor
+    var window: SDLWindow? {
+        return SDLWindow.from(id: windowID)
+    }
+}
+
+fileprivate class SDLEventDelegateBox {
+    public let delegate: any SDLEventDelegate
+    public init(_ delegate: any SDLEventDelegate) {self.delegate = delegate}
+}
+
 public enum SDLEvent {
     public static var delegate: SDLEventDelegate? {
         get {
-            return SDLEvent_delegate
-        } set (value) {
-            if SDLEvent_delegate == nil && value != nil {
-                SDL_SetEventFilter(eventFilter, nil)
-                SDL_AddEventWatch(eventWatch, nil)
-            } else if SDLEvent_delegate != nil && value == nil {
-                SDL_SetEventFilter(nil, nil)
-                SDL_DelEventWatch(eventWatch, nil)
+            var filter: SDL_EventFilter? = nil, ud: UnsafeMutableRawPointer? = nil
+            if SDL_GetEventFilter(&filter, &ud), let ud = ud {
+                let delegate = Unmanaged<SDLEventDelegateBox>.fromOpaque(ud).takeUnretainedValue()
+                return delegate.delegate
+            } else {
+                return nil
             }
-            SDLEvent_delegate = value
+        } set (value) {
+            var filter: SDL_EventFilter? = nil, ud: UnsafeMutableRawPointer? = nil
+            if SDL_GetEventFilter(&filter, &ud), let ud = ud {
+                let delegate = Unmanaged<SDLEventDelegateBox>.fromOpaque(ud)
+                SDL_SetEventFilter(nil, nil)
+                SDL_RemoveEventWatch(eventWatch, ud)
+                delegate.release()
+            }
+            if let value = value {
+                let box = SDLEventDelegateBox(value)
+                let ptr = Unmanaged.passRetained(box)
+                SDL_SetEventFilter(eventFilter, ptr.toOpaque())
+                SDL_AddEventWatch(eventWatch, ptr.toOpaque())
+            }
         }
     }
 
@@ -98,62 +121,240 @@ public enum SDLEvent {
         return SDLUnknownEvent()
     }
 
+    /// 
+    /// Check for the existence of a certain event type in the event queue.
+    /// 
+    /// If you need to check for a range of event types, use SDL_HasEvents()
+    /// instead.
+    /// 
+    /// \param type the type of event to be queried; see SDL_EventType for details.
+    /// \returns true if events matching `type` are present, or false if events
+    ///          matching `type` are not present.
+    /// 
+    /// \threadsafety It is safe to call this function from any thread.
+    /// 
+    /// \since This function is available since SDL 3.2.0.
+    /// 
+    /// \sa SDL_HasEvents
+    /// 
     public static func has<T: SDLEventType>(class clazz: T.Type) -> Bool {
         return SDL_HasEvent(clazz.type.rawValue)
     }
 
-    @MainActor public static func pump() {
+    // 
+    // Pump the event loop, gathering events from the input devices.
+    // 
+    // This function updates the event queue and internal input device state.
+    // 
+    // SDL_PumpEvents() gathers all the pending input information from devices and
+    // places it in the event queue. Without calls to SDL_PumpEvents() no events
+    // would ever be placed on the queue. Often the need for calls to
+    // SDL_PumpEvents() is hidden from the user since SDL_PollEvent() and
+    // SDL_WaitEvent() implicitly call SDL_PumpEvents(). However, if you are not
+    // polling or waiting for events (e.g. you are filtering them), then you must
+    // call SDL_PumpEvents() to force an event queue update.
+    // 
+    // \threadsafety This function should only be called on the main thread.
+    // 
+    // \since This function is available since SDL 3.2.0.
+    // 
+    // \sa SDL_PollEvent
+    // \sa SDL_WaitEvent
+    // 
+    @MainActor
+    public static func pump() {
         SDL_PumpEvents()
     }
 
-    @MainActor public static func poll() -> SDLEventType? {
+    /// 
+    /// Poll for currently pending events.
+    /// 
+    /// If `event` is not NULL, the next event is removed from the queue and stored
+    /// in the SDL_Event structure pointed to by `event`. The 1 returned refers to
+    /// this event, immediately stored in the SDL Event structure -- not an event
+    /// to follow.
+    /// 
+    /// If `event` is NULL, it simply returns 1 if there is an event in the queue,
+    /// but will not remove it from the queue.
+    /// 
+    /// As this function may implicitly call SDL_PumpEvents(), you can only call
+    /// this function in the thread that set the video mode.
+    /// 
+    /// SDL_PollEvent() is the favored way of receiving system events since it can
+    /// be done from the main loop and does not suspend the main loop while waiting
+    /// on an event to be posted.
+    /// 
+    /// The common practice is to fully process the event queue once every frame,
+    /// usually as a first step before updating the game's state:
+    /// 
+    /// ```c
+    /// while (game_is_still_running) {
+    ///     SDL_Event event;
+    ///     while (SDL_PollEvent(&event)) {  // poll until all events are handled!
+    ///         // decide what to do with this event.
+    ///     }
+    /// 
+    ///     // update game state, draw the current frame
+    /// }
+    /// ```
+    /// 
+    /// \param event the SDL_Event structure to be filled with the next event from
+    ///              the queue, or NULL.
+    /// \returns true if this got an event or false if there are none available.
+    /// 
+    /// \threadsafety This function should only be called on the main thread.
+    /// 
+    /// \since This function is available since SDL 3.2.0.
+    /// 
+    /// \sa SDL_PushEvent
+    /// \sa SDL_WaitEvent
+    /// \sa SDL_WaitEventTimeout
+    /// 
+    @MainActor
+    public static func poll() -> SDLEventType? {
         var event = SDL_Event()
-        let ok = withUnsafeMutablePointer(to: &event) {_event in
-            SDL_PollEvent(_event)
-        }
-        if ok {
+        if SDL_PollEvent(&event) {
             return make(event: event)
         } else {
             return nil
         }
     }
 
-    @MainActor public static func wait() throws -> SDLEventType {
+    /// 
+    /// Wait indefinitely for the next available event.
+    /// 
+    /// If `event` is not NULL, the next event is removed from the queue and stored
+    /// in the SDL_Event structure pointed to by `event`.
+    /// 
+    /// As this function may implicitly call SDL_PumpEvents(), you can only call
+    /// this function in the thread that initialized the video subsystem.
+    /// 
+    /// \param event the SDL_Event structure to be filled in with the next event
+    ///              from the queue, or NULL.
+    /// \returns true on success or false if there was an error while waiting for
+    ///          events; call SDL_GetError() for more information.
+    /// 
+    /// \threadsafety This function should only be called on the main thread.
+    /// 
+    /// \since This function is available since SDL 3.2.0.
+    /// 
+    /// \sa SDL_PollEvent
+    /// \sa SDL_PushEvent
+    /// \sa SDL_WaitEventTimeout
+    /// 
+    @MainActor
+    public static func wait() throws -> SDLEventType {
         var event = SDL_Event()
-        let ok = withUnsafeMutablePointer(to: &event) {_event in
-            SDL_WaitEvent(_event)
-        }
-        if ok {
+        if SDL_WaitEvent(&event) {
             return make(event: event)
         } else {
             throw SDLError()
         }
     }
 
-    @MainActor public static func wait(for timeout: Int32) throws -> SDLEventType? {
+    /// 
+    /// Wait until the specified timeout (in milliseconds) for the next available
+    /// event.
+    /// 
+    /// If `event` is not NULL, the next event is removed from the queue and stored
+    /// in the SDL_Event structure pointed to by `event`.
+    /// 
+    /// As this function may implicitly call SDL_PumpEvents(), you can only call
+    /// this function in the thread that initialized the video subsystem.
+    /// 
+    /// The timeout is not guaranteed, the actual wait time could be longer due to
+    /// system scheduling.
+    /// 
+    /// \param event the SDL_Event structure to be filled in with the next event
+    ///              from the queue, or NULL.
+    /// \param timeoutMS the maximum number of milliseconds to wait for the next
+    ///                  available event.
+    /// \returns true if this got an event or false if the timeout elapsed without
+    ///          any events available.
+    /// 
+    /// \threadsafety This function should only be called on the main thread.
+    /// 
+    /// \since This function is available since SDL 3.2.0.
+    /// 
+    /// \sa SDL_PollEvent
+    /// \sa SDL_PushEvent
+    /// \sa SDL_WaitEvent
+    /// 
+    @MainActor
+    public static func wait(for timeout: Int32) throws -> SDLEventType? {
         var event = SDL_Event()
-        let ok = withUnsafeMutablePointer(to: &event) {_event in
-            SDL_WaitEventTimeout(_event, timeout)
-        }
-        if ok {
+        if SDL_WaitEventTimeout(&event, timeout) {
             return make(event: event)
         } else {
             throw SDLError()
         }
     }
 
+    /// 
+    /// Clear events of a specific type from the event queue.
+    /// 
+    /// This will unconditionally remove any events from the queue that match
+    /// `type`. If you need to remove a range of event types, use SDL_FlushEvents()
+    /// instead.
+    /// 
+    /// It's also normal to just ignore events you don't care about in your event
+    /// loop without calling this function.
+    /// 
+    /// This function only affects currently queued events. If you want to make
+    /// sure that all pending OS events are flushed, you can call SDL_PumpEvents()
+    /// on the main thread immediately before the flush call.
+    /// 
+    /// If you have user events with custom data that needs to be freed, you should
+    /// use SDL_PeepEvents() to remove and clean up those events before calling
+    /// this function.
+    /// 
+    /// \param type the type of event to be cleared; see SDL_EventType for details.
+    /// 
+    /// \threadsafety It is safe to call this function from any thread.
+    /// 
+    /// \since This function is available since SDL 3.2.0.
+    /// 
+    /// \sa SDL_FlushEvents
+    /// 
     public static func flush<T: SDLEventType>(type: T.Type) {
         SDL_FlushEvent(type.type.rawValue)
     }
 
+    /// 
+    /// Add an event to the event queue.
+    /// 
+    /// The event queue can actually be used as a two way communication channel.
+    /// Not only can events be read from the queue, but the user can also push
+    /// their own events onto it. `event` is a pointer to the event structure you
+    /// wish to push onto the queue. The event is copied into the queue, and the
+    /// caller may dispose of the memory pointed to after SDL_PushEvent() returns.
+    /// 
+    /// Note: Pushing device input events onto the queue doesn't modify the state
+    /// of the device within SDL.
+    /// 
+    /// Note: Events pushed onto the queue with SDL_PushEvent() get passed through
+    /// the event filter but events added with SDL_PeepEvents() do not.
+    /// 
+    /// For pushing application-specific events, please use SDL_RegisterEvents() to
+    /// get an event type that does not conflict with other code that also wants
+    /// its own custom event types.
+    /// 
+    /// \param event the SDL_Event to be added to the queue.
+    /// \returns true on success, false if the event was filtered or on failure;
+    ///          call SDL_GetError() for more information. A common reason for
+    ///          error is the event queue being full.
+    /// 
+    /// \threadsafety It is safe to call this function from any thread.
+    /// 
+    /// \since This function is available since SDL 3.2.0.
+    /// 
+    /// \sa SDL_PeepEvents
+    /// \sa SDL_PollEvent
+    /// \sa SDL_RegisterEvents
+    /// 
     public static func push(event: SDLEventType) throws {
         var ev = event.sdlEvent
-        let res = withUnsafeMutablePointer(to: &ev) {_ev in
-            SDL_PushEvent(_ev)
-        }
-        if res {
-            return
-        } else {
+        if !SDL_PushEvent(&ev) {
             throw SDLError()
         }
     }
@@ -166,6 +367,11 @@ public enum SDLEvent {
     }
 }
 
+/// 
+/// Fields shared by every event
+/// 
+/// \since This struct is available since SDL 3.2.0.
+/// 
 public struct SDLUnknownEvent: SDLEventType {
     public static var type: SDL_EventType {return SDL_EVENT_FIRST}
     public var timestamp: UInt64 = 0
@@ -186,6 +392,11 @@ public struct SDLQuitEvent: SDLEventType {
     public init(from: SDL_Event) {}
 }
 
+/// 
+/// Display state change event data (event.display.*)
+/// 
+/// \since This struct is available since SDL 3.2.0.
+/// 
 public protocol SDLDisplayEvent: SDLEventType {
     var display: SDLDisplay {get set}
     var data1: Int32 {get set}
@@ -247,27 +458,32 @@ public struct SDLDisplayContentScaleChangedEvent: SDLDisplayEvent {
     public init(on display: SDLDisplay) {self.display = display}
 }
 
+/// 
+/// Window state change event data (event.window.*)
+/// 
+/// \since This struct is available since SDL 3.2.0.
+/// 
 public protocol SDLWindowEvent: SDLWindowedEvent {
     var data1: Int32 {get set}
     var data2: Int32 {get set}
-    init(for window: SDLWindow)
+    init(for windowID: UInt32)
 }
 
 public extension SDLWindowEvent {
     var sdlEvent: SDL_Event {
         var event = SDLEvent.stub(for: self)
-        event.window.windowID = window!.id
+        event.window.windowID = windowID
         event.window.data1 = data1
         event.window.data2 = data2
         return event
     }
 
-    init(for window: SDLWindow) {
+    init(for windowID: UInt32) {
         self.init()
-        self.window = window
+        self.windowID = windowID
     }
     init(from event: SDL_Event) {
-        self.init(for: SDLWindow.from(id: event.window.windowID)!)
+        self.init(for: event.window.windowID)
         self.timestamp = event.window.timestamp
         self.data1 = event.window.data1
         self.data2 = event.window.data2
@@ -277,7 +493,7 @@ public extension SDLWindowEvent {
 public struct SDLWindowShownEvent: SDLWindowEvent {
     public static var type: SDL_EventType = SDL_EVENT_WINDOW_SHOWN
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow?
+    public var windowID: UInt32 = 0
     public var data1: Int32 = 0
     public var data2: Int32 = 0
     public init() {}
@@ -286,7 +502,7 @@ public struct SDLWindowShownEvent: SDLWindowEvent {
 public struct SDLWindowHiddenEvent: SDLWindowEvent {
     public static var type: SDL_EventType = SDL_EVENT_WINDOW_HIDDEN
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow?
+    public var windowID: UInt32 = 0
     public var data1: Int32 = 0
     public var data2: Int32 = 0
     public init() {}
@@ -295,7 +511,7 @@ public struct SDLWindowHiddenEvent: SDLWindowEvent {
 public struct SDLWindowExposedEvent: SDLWindowEvent {
     public static var type: SDL_EventType = SDL_EVENT_WINDOW_EXPOSED
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow?
+    public var windowID: UInt32 = 0
     public var data1: Int32 = 0
     public var data2: Int32 = 0
     public init() {}
@@ -304,7 +520,7 @@ public struct SDLWindowExposedEvent: SDLWindowEvent {
 public struct SDLWindowMovedEvent: SDLWindowEvent {
     public static var type: SDL_EventType = SDL_EVENT_WINDOW_MOVED
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow?
+    public var windowID: UInt32 = 0
     public var data1: Int32 = 0
     public var data2: Int32 = 0
     public init() {}
@@ -313,7 +529,7 @@ public struct SDLWindowMovedEvent: SDLWindowEvent {
 public struct SDLWindowResizedEvent: SDLWindowEvent {
     public static var type: SDL_EventType = SDL_EVENT_WINDOW_RESIZED
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow?
+    public var windowID: UInt32 = 0
     public var data1: Int32 = 0
     public var data2: Int32 = 0
     public init() {}
@@ -322,7 +538,7 @@ public struct SDLWindowResizedEvent: SDLWindowEvent {
 public struct SDLWindowPixelSizeChangedEvent: SDLWindowEvent {
     public static var type: SDL_EventType = SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow?
+    public var windowID: UInt32 = 0
     public var data1: Int32 = 0
     public var data2: Int32 = 0
     public init() {}
@@ -331,7 +547,7 @@ public struct SDLWindowPixelSizeChangedEvent: SDLWindowEvent {
 public struct SDLWindowMinimizedEvent: SDLWindowEvent {
     public static var type: SDL_EventType = SDL_EVENT_WINDOW_MINIMIZED
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow?
+    public var windowID: UInt32 = 0
     public var data1: Int32 = 0
     public var data2: Int32 = 0
     public init() {}
@@ -340,7 +556,7 @@ public struct SDLWindowMinimizedEvent: SDLWindowEvent {
 public struct SDLWindowMaximizedEvent: SDLWindowEvent {
     public static var type: SDL_EventType = SDL_EVENT_WINDOW_MAXIMIZED
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow?
+    public var windowID: UInt32 = 0
     public var data1: Int32 = 0
     public var data2: Int32 = 0
     public init() {}
@@ -349,7 +565,7 @@ public struct SDLWindowMaximizedEvent: SDLWindowEvent {
 public struct SDLWindowRestoredEvent: SDLWindowEvent {
     public static var type: SDL_EventType = SDL_EVENT_WINDOW_RESTORED
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow?
+    public var windowID: UInt32 = 0
     public var data1: Int32 = 0
     public var data2: Int32 = 0
     public init() {}
@@ -358,7 +574,7 @@ public struct SDLWindowRestoredEvent: SDLWindowEvent {
 public struct SDLWindowMouseEnterEvent: SDLWindowEvent {
     public static var type: SDL_EventType = SDL_EVENT_WINDOW_MOUSE_ENTER
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow?
+    public var windowID: UInt32 = 0
     public var data1: Int32 = 0
     public var data2: Int32 = 0
     public init() {}
@@ -367,7 +583,7 @@ public struct SDLWindowMouseEnterEvent: SDLWindowEvent {
 public struct SDLWindowMouseLeaveEvent: SDLWindowEvent {
     public static var type: SDL_EventType = SDL_EVENT_WINDOW_MOUSE_LEAVE
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow?
+    public var windowID: UInt32 = 0
     public var data1: Int32 = 0
     public var data2: Int32 = 0
     public init() {}
@@ -376,7 +592,7 @@ public struct SDLWindowMouseLeaveEvent: SDLWindowEvent {
 public struct SDLWindowFocusGainedEvent: SDLWindowEvent {
     public static var type: SDL_EventType = SDL_EVENT_WINDOW_FOCUS_GAINED
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow?
+    public var windowID: UInt32 = 0
     public var data1: Int32 = 0
     public var data2: Int32 = 0
     public init() {}
@@ -385,7 +601,7 @@ public struct SDLWindowFocusGainedEvent: SDLWindowEvent {
 public struct SDLWindowFocusLostEvent: SDLWindowEvent {
     public static var type: SDL_EventType = SDL_EVENT_WINDOW_FOCUS_LOST
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow?
+    public var windowID: UInt32 = 0
     public var data1: Int32 = 0
     public var data2: Int32 = 0
     public init() {}
@@ -394,7 +610,7 @@ public struct SDLWindowFocusLostEvent: SDLWindowEvent {
 public struct SDLWindowCloseRequestedEvent: SDLWindowEvent {
     public static var type: SDL_EventType = SDL_EVENT_WINDOW_CLOSE_REQUESTED
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow?
+    public var windowID: UInt32 = 0
     public var data1: Int32 = 0
     public var data2: Int32 = 0
     public init() {}
@@ -403,7 +619,7 @@ public struct SDLWindowCloseRequestedEvent: SDLWindowEvent {
 public struct SDLWindowHitTestEvent: SDLWindowEvent {
     public static var type: SDL_EventType = SDL_EVENT_WINDOW_HIT_TEST
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow?
+    public var windowID: UInt32 = 0
     public var data1: Int32 = 0
     public var data2: Int32 = 0
     public init() {}
@@ -412,7 +628,7 @@ public struct SDLWindowHitTestEvent: SDLWindowEvent {
 public struct SDLWindowIccprofChangedEvent: SDLWindowEvent {
     public static var type: SDL_EventType = SDL_EVENT_WINDOW_ICCPROF_CHANGED
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow?
+    public var windowID: UInt32 = 0
     public var data1: Int32 = 0
     public var data2: Int32 = 0
     public init() {}
@@ -421,7 +637,7 @@ public struct SDLWindowIccprofChangedEvent: SDLWindowEvent {
 public struct SDLWindowDisplayChangedEvent: SDLWindowEvent {
     public static var type: SDL_EventType = SDL_EVENT_WINDOW_DISPLAY_CHANGED
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow?
+    public var windowID: UInt32 = 0
     public var data1: Int32 = 0
     public var data2: Int32 = 0
     public init() {}
@@ -430,7 +646,7 @@ public struct SDLWindowDisplayChangedEvent: SDLWindowEvent {
 public struct SDLWindowDisplayScaleChangedEvent: SDLWindowEvent {
     public static var type: SDL_EventType = SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow?
+    public var windowID: UInt32 = 0
     public var data1: Int32 = 0
     public var data2: Int32 = 0
     public init() {}
@@ -439,7 +655,7 @@ public struct SDLWindowDisplayScaleChangedEvent: SDLWindowEvent {
 public struct SDLWindowOccludedEvent: SDLWindowEvent {
     public static var type: SDL_EventType = SDL_EVENT_WINDOW_OCCLUDED
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow?
+    public var windowID: UInt32 = 0
     public var data1: Int32 = 0
     public var data2: Int32 = 0
     public init() {}
@@ -448,64 +664,83 @@ public struct SDLWindowOccludedEvent: SDLWindowEvent {
 public struct SDLWindowDestroyedEvent: SDLWindowEvent {
     public static var type: SDL_EventType = SDL_EVENT_WINDOW_DESTROYED
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow?
+    public var windowID: UInt32 = 0
     public var data1: Int32 = 0
     public var data2: Int32 = 0
     public init() {}
 }
 
+/// 
+/// Keyboard button event structure (event.key.*)
+/// 
+/// The `key` is the base SDL_Keycode generated by pressing the `scancode`
+/// using the current keyboard layout, applying any options specified in
+/// SDL_HINT_KEYCODE_OPTIONS. You can get the SDL_Keycode corresponding to the
+/// event scancode and modifiers directly from the keyboard layout, bypassing
+/// SDL_HINT_KEYCODE_OPTIONS, by calling SDL_GetKeyFromScancode().
+/// 
+/// \since This struct is available since SDL 3.2.0.
+/// 
+/// \sa SDL_GetKeyFromScancode
+/// \sa SDL_HINT_KEYCODE_OPTIONS
+/// 
 public protocol SDLKeyboardEvent: SDLWindowedEvent {
+    var which: UInt32 {get set}
     var pressed: Bool {get set}
     var `repeat`: Bool {get set}
     var scancode: SDLScancode {get set}
-    var symbol: SDLKeycode {get set}
+    var key: SDLKeycode {get set}
     var modifiers: SDLKeyModifiers {get set}
 }
 
 public extension SDLKeyboardEvent {
     var sdlEvent: SDL_Event {
         var event = SDLEvent.stub(for: self)
-        event.key.windowID = window?.id ?? 0
-        event.key.state = UInt8(pressed ? SDL_PRESSED : SDL_RELEASED)
-        event.key.repeat = self.repeat ? 1 : 0
-        event.key.keysym.scancode = SDL_Scancode(rawValue: scancode.rawValue)
-        event.key.keysym.sym = symbol.rawValue
-        event.key.keysym.mod = modifiers.rawValue
+        event.key.windowID = windowID
+        event.key.which = which
+        event.key.scancode = scancode.sdlValue
+        event.key.key = key.rawValue
+        event.key.mod = modifiers.rawValue
+        event.key.down = pressed
+        event.key.repeat = self.repeat
         return event
     }
 
     init(from event: SDL_Event) {
         self.init()
         self.timestamp = event.key.timestamp
-        self.window = SDLWindow.from(id: event.key.windowID)
-        self.pressed = event.key.state == SDL_PRESSED
-        self.repeat = event.key.repeat != 0
-        self.scancode = SDLScancode(rawValue: event.key.keysym.scancode.rawValue)!
-        self.symbol = SDLKeycode(rawValue: event.key.keysym.sym)!
-        self.modifiers = SDLKeyModifiers(rawValue: event.key.keysym.mod)
+        self.windowID = event.key.windowID
+        self.which = event.key.which
+        self.scancode = .sdl(event.key.scancode)
+        self.key = SDLKeycode(rawValue: event.key.key)!
+        self.modifiers = SDLKeyModifiers(rawValue: event.key.mod)
+        self.pressed = event.key.down
+        self.repeat = event.key.repeat
     }
 }
 
 public struct SDLKeyDownEvent: SDLKeyboardEvent {
-    public var window: SDLWindow? = nil
+    public var windowID: UInt32 = 0
     public var pressed: Bool = false
     public var `repeat`: Bool = false
     public var scancode: SDLScancode = .unknown
-    public var symbol: SDLKeycode = .unknown
+    public var key: SDLKeycode = .unknown
     public var modifiers: SDLKeyModifiers = .none
     public var timestamp: UInt64 = 0
+    public var which: UInt32 = 0
     public static var type: SDL_EventType = SDL_EVENT_KEY_DOWN
     public init() {}
 }
 
 public struct SDLKeyUpEvent: SDLKeyboardEvent {
-    public var window: SDLWindow? = nil
+    public var windowID: UInt32 = 0
     public var pressed: Bool = false
     public var `repeat`: Bool = false
     public var scancode: SDLScancode = .unknown
-    public var symbol: SDLKeycode = .unknown
+    public var key: SDLKeycode = .unknown
     public var modifiers: SDLKeyModifiers = .none
     public var timestamp: UInt64 = 0
+    public var which: UInt32 = 0
     public static var type: SDL_EventType = SDL_EVENT_KEY_UP
     public init() {}
 }
@@ -513,19 +748,19 @@ public struct SDLKeyUpEvent: SDLKeyboardEvent {
 public struct SDLTextEditingEvent: SDLWindowedEvent {
     public static var type: SDL_EventType = SDL_EVENT_TEXT_EDITING
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow? = nil
+    public var windowID: UInt32 = 0
     public var text: String = ""
     public var cursorPosition: Int32 = 0
     public var selectionLength: Int32 = 0
 
     public var sdlEvent: SDL_Event {
         var event = SDLEvent.stub(for: self)
-        event.edit.windowID = window?.id ?? 0
+        event.edit.windowID = windowID
         let str = SDL_malloc(text.count + 1)!
         text.withCString {_text in
             str.copyMemory(from: UnsafeRawPointer(_text), byteCount: text.count)
         }
-        event.edit.text = str.bindMemory(to: CChar.self, capacity: text.count + 1)
+        event.edit.text = UnsafePointer<CChar>(str.bindMemory(to: CChar.self, capacity: text.count + 1))
         event.edit.start = cursorPosition
         event.edit.length = selectionLength
         return event
@@ -534,7 +769,7 @@ public struct SDLTextEditingEvent: SDLWindowedEvent {
     public init() {}
     public init(from event: SDL_Event) {
         timestamp = event.edit.timestamp
-        window = SDLWindow.from(id: event.edit.windowID)
+        windowID = event.edit.windowID
         text = String(cString: event.edit.text)
         cursorPosition = event.edit.start
         selectionLength = event.edit.length
@@ -544,24 +779,24 @@ public struct SDLTextEditingEvent: SDLWindowedEvent {
 public struct SDLTextInputEvent: SDLWindowedEvent {
     public static var type: SDL_EventType = SDL_EVENT_TEXT_INPUT
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow? = nil
+    public var windowID: UInt32 = 0
     public var text: String = ""
 
     public var sdlEvent: SDL_Event {
         var event = SDLEvent.stub(for: self)
-        event.text.windowID = window?.id ?? 0
+        event.text.windowID = windowID
         let str = SDL_malloc(text.count + 1)!
         text.withCString {_text in
             str.copyMemory(from: UnsafeRawPointer(_text), byteCount: text.count)
         }
-        event.text.text = str.bindMemory(to: CChar.self, capacity: text.count + 1)
+        event.text.text = UnsafePointer<CChar>(str.bindMemory(to: CChar.self, capacity: text.count + 1))
         return event
     }
 
     public init() {}
     public init(from event: SDL_Event) {
         timestamp = event.edit.timestamp
-        window = SDLWindow.from(id: event.text.windowID)
+        windowID = event.text.windowID
         text = String(cString: event.text.text)
     }
 }
@@ -588,10 +823,10 @@ public protocol SDLMouseButtonEvent: SDLWindowedEvent {
 public extension SDLMouseButtonEvent {
     var sdlEvent: SDL_Event {
         var ev = SDLEvent.stub(for: self)
-        ev.button.windowID = window?.id ?? 0
+        ev.button.windowID = windowID
         ev.button.which = mouseID
         ev.button.button = button
-        ev.button.state = UInt8(pressed ? SDL_PRESSED : SDL_RELEASED)
+        ev.button.down = pressed
         ev.button.clicks = clickCount
         ev.button.x = x
         ev.button.y = y
@@ -601,10 +836,10 @@ public extension SDLMouseButtonEvent {
     init(from event: SDL_Event) {
         self.init()
         timestamp = event.button.timestamp
-        window = SDLWindow.from(id: event.button.windowID)
+        windowID = event.button.windowID
         mouseID = event.button.which
         button = event.button.button
-        pressed = event.button.state == SDL_PRESSED
+        pressed = event.button.down
         clickCount = event.button.clicks
         x = event.button.x
         y = event.button.y
@@ -614,7 +849,7 @@ public extension SDLMouseButtonEvent {
 public struct SDLMouseButtonDownEvent: SDLMouseButtonEvent {
     public static var type: SDL_EventType = SDL_EVENT_MOUSE_BUTTON_DOWN
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow? = nil
+    public var windowID: UInt32 = 0
     public var mouseID: UInt32 = 0
     public var button: UInt8 = 0
     public var pressed: Bool = false
@@ -627,7 +862,7 @@ public struct SDLMouseButtonDownEvent: SDLMouseButtonEvent {
 public struct SDLMouseButtonUpEvent: SDLMouseButtonEvent {
     public static var type: SDL_EventType = SDL_EVENT_MOUSE_BUTTON_UP
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow? = nil
+    public var windowID: UInt32 = 0
     public var mouseID: UInt32 = 0
     public var button: UInt8 = 0
     public var pressed: Bool = false
@@ -640,18 +875,18 @@ public struct SDLMouseButtonUpEvent: SDLMouseButtonEvent {
 public struct SDLMouseMotionEvent: SDLWindowedEvent {
     public static var type: SDL_EventType = SDL_EVENT_MOUSE_MOTION
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow? = nil
+    public var windowID: UInt32 = 0
     public var mouseID: UInt32 = 0
-    public var pressed: Bool = false
+    public var buttons: SDLMouse.ButtonFlags = []
     public var x: Float = 0
     public var y: Float = 0
     public var relativeX: Float = 0
     public var relativeY: Float = 0
     public var sdlEvent: SDL_Event {
         var ev = SDLEvent.stub(for: self)
-        ev.motion.windowID = window?.id ?? 0
+        ev.motion.windowID = windowID
         ev.motion.which = mouseID
-        ev.motion.state = UInt32(pressed ? SDL_PRESSED : SDL_RELEASED)
+        ev.motion.state = buttons.rawValue
         ev.motion.x = x
         ev.motion.y = y
         ev.motion.xrel = relativeX
@@ -663,9 +898,9 @@ public struct SDLMouseMotionEvent: SDLWindowedEvent {
     public init(from event: SDL_Event) {
         self.init()
         timestamp = event.motion.timestamp
-        window = SDLWindow.from(id: event.motion.windowID)
+        windowID = event.motion.windowID
         mouseID = event.motion.which
-        pressed = event.motion.state == SDL_PRESSED
+        buttons = SDLMouse.ButtonFlags(rawValue: event.motion.state)
         x = event.motion.x
         y = event.motion.y
         relativeX = event.motion.xrel
@@ -676,7 +911,7 @@ public struct SDLMouseMotionEvent: SDLWindowedEvent {
 public struct SDLMouseWheelEvent: SDLWindowedEvent {
     public static var type: SDL_EventType = SDL_EVENT_MOUSE_WHEEL
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow? = nil
+    public var windowID: UInt32 = 0
     public var mouseID: UInt32 = 0
     public var flipped: Bool = false
     public var x: Float = 0
@@ -685,13 +920,13 @@ public struct SDLMouseWheelEvent: SDLWindowedEvent {
     public var mouseY: Float = 0
     public var sdlEvent: SDL_Event {
         var ev = SDLEvent.stub(for: self)
-        ev.wheel.windowID = window?.id ?? 0
+        ev.wheel.windowID = windowID
         ev.wheel.which = mouseID
-        ev.wheel.direction = (flipped ? SDL_MOUSEWHEEL_FLIPPED : SDL_MOUSEWHEEL_NORMAL).rawValue
+        ev.wheel.direction = (flipped ? SDL_MOUSEWHEEL_FLIPPED : SDL_MOUSEWHEEL_NORMAL)
         ev.wheel.x = x
         ev.wheel.y = y
-        ev.wheel.mouseX = mouseX
-        ev.wheel.mouseY = mouseY
+        ev.wheel.mouse_x = mouseX
+        ev.wheel.mouse_y = mouseY
         return ev
     }
 
@@ -699,13 +934,13 @@ public struct SDLMouseWheelEvent: SDLWindowedEvent {
     public init(from event: SDL_Event) {
         self.init()
         timestamp = event.wheel.timestamp
-        window = SDLWindow.from(id: event.wheel.windowID)
+        windowID = event.wheel.windowID
         mouseID = event.wheel.which
-        flipped = event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED.rawValue
+        flipped = event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED
         x = event.wheel.x
         y = event.wheel.y
-        mouseX = event.wheel.mouseX
-        mouseY = event.wheel.mouseY
+        mouseX = event.wheel.mouse_x
+        mouseY = event.wheel.mouse_y
     }
 }
 
@@ -719,6 +954,7 @@ public protocol SDLUserEvent: SDLWindowedEvent {
 public extension SDLUserEvent {
     var sdlEvent: SDL_Event {
         var ev = SDLEvent.stub(for: self)
+        ev.user.windowID = windowID
         ev.user.code = code
         ev.user.data1 = data1
         ev.user.data2 = data2
@@ -732,7 +968,7 @@ public extension SDLUserEvent {
     init(from event: SDL_Event) {
         self.init()
         timestamp = event.user.timestamp
-        window = SDLWindow.from(id: event.user.windowID)
+        windowID = event.user.windowID
         code = event.user.code
         data1 = event.user.data1
         data2 = event.user.data2
@@ -741,7 +977,7 @@ public extension SDLUserEvent {
 
 open class SDLUserEventBase {
     public var timestamp: UInt64 = 0
-    public var window: SDLWindow? = nil
+    public var windowID: UInt32 = 0
     public var code: Int32 = 0
     public var data1: UnsafeMutableRawPointer? = nil
     public var data2: UnsafeMutableRawPointer? = nil
@@ -758,16 +994,12 @@ open class SDLUserEventBase {
     }
 }
 
-fileprivate func eventFilter(_ userdata: UnsafeMutableRawPointer!, _ event: UnsafeMutablePointer<SDL_Event>!) -> Int32 {
-    if let delegate = SDLEvent_delegate {
-        return delegate.filter(event: SDLEvent.make(event: event.pointee)) ? 1 : 0
-    }
-    return 1
+fileprivate func eventFilter(_ userdata: UnsafeMutableRawPointer!, _ event: UnsafeMutablePointer<SDL_Event>!) -> Bool {
+    let delegate = Unmanaged<SDLEventDelegateBox>.fromOpaque(userdata).takeUnretainedValue().delegate
+    return delegate.filter(event: SDLEvent.make(event: event.pointee))
 }
 
-fileprivate func eventWatch(_ userdata: UnsafeMutableRawPointer!, _ event: UnsafeMutablePointer<SDL_Event>!) -> Int32 {
-    if let delegate = SDLEvent_delegate {
-        return delegate.watch(event: SDLEvent.make(event: event.pointee)) ? 1 : 0
-    }
-    return 1
+fileprivate func eventWatch(_ userdata: UnsafeMutableRawPointer!, _ event: UnsafeMutablePointer<SDL_Event>!) -> Bool {
+    let delegate = Unmanaged<SDLEventDelegateBox>.fromOpaque(userdata).takeUnretainedValue().delegate
+    return delegate.watch(event: SDLEvent.make(event: event.pointee))
 }

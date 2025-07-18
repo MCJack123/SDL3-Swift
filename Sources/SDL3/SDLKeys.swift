@@ -10,6 +10,7 @@ public actor SDLKeyConversionActor: GlobalActor {
     public static let shared = SDLKeyConversionActor()
 }
 
+@EnumWrapper(SDL_Scancode.self)
 public enum SDLScancode: UInt32 {
     case unknown = 0
     case a = 4
