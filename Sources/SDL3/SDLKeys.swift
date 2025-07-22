@@ -668,7 +668,7 @@ public enum SDLKeycode: UInt32 {
     }
 }
 
-public struct SDLKeyModifiers: OptionSet {
+public struct SDLKeyModifiers: OptionSet, Sendable {
     public let rawValue: UInt16
     public init(rawValue val: UInt16) {rawValue = val}
     public static let none = SDLKeyModifiers([])

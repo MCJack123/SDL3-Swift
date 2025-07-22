@@ -28,7 +28,7 @@ import SDL3_Native
 /// - See: SDL_CreateSurface
 /// - See: SDL_DestroySurface
 /// 
-public class SDLSurface {
+public actor SDLSurface {
     /// 
     /// A set of blend modes used in drawing operations.
     /// 
@@ -40,7 +40,7 @@ public class SDLSurface {
     /// 
     /// - See: SDL_ComposeCustomBlendMode
     ///
-    public struct BlendMode: OptionSet {
+    public struct BlendMode: OptionSet, Sendable {
         public let rawValue: UInt32
         public init(rawValue val: UInt32) {rawValue = val}
         /// no blending: dstRGBA = srcRGBA
@@ -244,9 +244,9 @@ public class SDLSurface {
         case linear
     }
 
-    internal let surf: UnsafeMutablePointer<SDL_Surface>
+    internal let surf: SendableUnsafeMutablePointer<SDL_Surface>
     private let owned: Bool
-    private let pixelData: UnsafeMutableRawPointer?
+    private let pixelData: SendableMutableRawPointer?
     public let width: Int32
     public let height: Int32
     public let pitch: Int32
@@ -300,6 +300,17 @@ public class SDLSurface {
     }
 
     internal init(from: UnsafeMutablePointer<SDL_Surface>, owned _owned: Bool) {
+        surf = from.sendable
+        owned = _owned
+        pixelData = nil
+        width = surf.pointee.w
+        height = surf.pointee.h
+        pitch = surf.pointee.pitch
+        format = SDLPixelFormat(from: surf.pointee.format)
+        pixels = surf.pointee.pixels
+    }
+
+    internal init(from: SendableUnsafeMutablePointer<SDL_Surface>, owned _owned: Bool) {
         surf = from
         owned = _owned
         pixelData = nil
@@ -326,7 +337,7 @@ public class SDLSurface {
     /// - See: SDL_CreateSurfaceFrom
     /// - See: SDL_DestroySurface
     /// 
-    public convenience init(width: Int32, height: Int32, format: SDLPixelFormat) throws {
+    public init(width: Int32, height: Int32, format: SDLPixelFormat) throws {
         if let surface = nullCheck(SDL_CreateSurface(width, height, format.fmt)) {
             self.init(from: surface, owned: true)
         } else {
@@ -366,9 +377,9 @@ public class SDLSurface {
             data[i] = from[i]
         }
         if let surface = nullCheck(SDL_CreateSurfaceFrom(width, height, format.fmt, data, 4 * width)) {
-            surf = surface
+            surf = surface.sendable
             owned = true
-            pixelData = UnsafeMutableRawPointer(data)
+            pixelData = UnsafeMutableRawPointer(data).sendable
             self.width = surf.pointee.w
             self.height = surf.pointee.h
             self.pitch = surf.pointee.pitch
@@ -412,9 +423,9 @@ public class SDLSurface {
             data[i] = from[i]
         }
         if let surface = nullCheck(SDL_CreateSurfaceFrom(width, height, format.fmt, data, pitch)) {
-            surf = surface
+            surf = surface.sendable
             owned = true
-            pixelData = UnsafeMutableRawPointer(data)
+            pixelData = UnsafeMutableRawPointer(data).sendable
             self.width = surf.pointee.w
             self.height = surf.pointee.h
             self.pitch = surf.pointee.pitch
@@ -428,9 +439,9 @@ public class SDLSurface {
 
     deinit {
         if owned {
-            SDL_DestroySurface(surf)
+            SDL_DestroySurface(surf.pointer)
             if let ptr = pixelData {
-                ptr.deallocate()
+                ptr.pointer.deallocate()
             }
         }
     }
@@ -448,7 +459,7 @@ public class SDLSurface {
     /// - See: SDL_SetSurfaceRLE
     /// 
     public var rle: Bool {
-        return SDL_SurfaceHasRLE(surf)
+        return SDL_SurfaceHasRLE(surf.pointer)
     }
 
     /// 
@@ -467,7 +478,7 @@ public class SDLSurface {
     /// - See: SDL_UnlockSurface
     /// 
     public func set(rle value: Bool) throws {
-        if !SDL_SetSurfaceRLE(surf, value) {
+        if !SDL_SetSurfaceRLE(surf.pointer, value) {
             throw SDLError()
         }
     }
@@ -489,11 +500,11 @@ public class SDLSurface {
     /// 
     public var colorKey: SDLColor? {
         get throws {
-            if !SDL_SurfaceHasColorKey(surf) {
+            if !SDL_SurfaceHasColorKey(surf.pointer) {
                 return nil
             }
             var res: UInt32 = 0
-            if SDL_GetSurfaceColorKey(surf, &res) {
+            if SDL_GetSurfaceColorKey(surf.pointer, &res) {
                 return SDLColor(from: res, as: format, with: palette)
             } else {
                 throw SDLError()
@@ -525,9 +536,9 @@ public class SDLSurface {
     public func set(colorKey value: SDLColor?) throws {
         let ok: Bool
         if let value = value {
-            ok = SDL_SetSurfaceColorKey(surf, true, value.rgb(as: format, with: palette))
+            ok = SDL_SetSurfaceColorKey(surf.pointer, true, value.rgb(as: format, with: palette))
         } else {
-            ok = SDL_SetSurfaceColorKey(surf, false, 0)
+            ok = SDL_SetSurfaceColorKey(surf.pointer, false, 0)
         }
         if !ok {
             throw SDLError()
@@ -545,7 +556,7 @@ public class SDLSurface {
     /// - See: SDL_GetSurfaceColorKey
     /// 
     public var hasColorKey: Bool {
-        return SDL_SurfaceHasColorKey(surf)
+        return SDL_SurfaceHasColorKey(surf.pointer)
     }
 
     /// 
@@ -561,7 +572,7 @@ public class SDLSurface {
     public var colorMod: SDLColor {
         get throws {
             var r: UInt8 = 0, g: UInt8 = 0, b: UInt8 = 0
-            if !SDL_GetSurfaceColorMod(self.surf, &r, &g, &b) {
+            if !SDL_GetSurfaceColorMod(self.surf.pointer, &r, &g, &b) {
                 throw SDLError()
             }
             return SDLColor(red: r, green: g, blue: b)
@@ -586,7 +597,7 @@ public class SDLSurface {
     /// - See: SDL_SetSurfaceAlphaMod
     /// 
     public func set(colorMod value: SDLColor) throws {
-        if !SDL_SetSurfaceColorMod(surf, value.red, value.green, value.blue) {
+        if !SDL_SetSurfaceColorMod(surf.pointer, value.red, value.green, value.blue) {
             throw SDLError()
         }
     }
@@ -604,7 +615,7 @@ public class SDLSurface {
     public var alphaMod: UInt8 {
         get throws {
             var a: UInt8 = 0
-            if !SDL_GetSurfaceAlphaMod(self.surf, &a) {
+            if !SDL_GetSurfaceAlphaMod(self.surf.pointer, &a) {
                 throw SDLError()
             }
             return a
@@ -628,7 +639,7 @@ public class SDLSurface {
     /// - See: SDL_SetSurfaceColorMod
     /// 
     public func set(alphaMod value: UInt8) throws {
-        if !SDL_SetSurfaceAlphaMod(surf, value) {
+        if !SDL_SetSurfaceAlphaMod(surf.pointer, value) {
             throw SDLError()
         }
     }
@@ -645,7 +656,7 @@ public class SDLSurface {
     public var blendMode: BlendMode {
         get throws {
             var res: SDL_BlendMode = SDL_BLENDMODE_NONE
-            if !SDL_GetSurfaceBlendMode(self.surf, &res) {
+            if !SDL_GetSurfaceBlendMode(self.surf.pointer, &res) {
                 throw SDLError()
             }
             return BlendMode(rawValue: res)
@@ -667,7 +678,7 @@ public class SDLSurface {
     /// - See: SDL_GetSurfaceBlendMode
     /// 
     public func set(blendMode value: BlendMode) throws {
-        if !SDL_SetSurfaceBlendMode(surf, SDL_BlendMode(value.rawValue)) {
+        if !SDL_SetSurfaceBlendMode(surf.pointer, SDL_BlendMode(value.rawValue)) {
             throw SDLError()
         }
     }
@@ -691,7 +702,7 @@ public class SDLSurface {
     public var clipRect: SDLRect {
         get throws {
             var rect = SDL_Rect()
-            if !SDL_GetSurfaceClipRect(surf, &rect) {
+            if !SDL_GetSurfaceClipRect(surf.pointer, &rect) {
                 throw SDLError()
             }
             return SDLRect(from: rect)
@@ -719,7 +730,7 @@ public class SDLSurface {
     /// 
     public func set(clipRect value: SDLRect) throws {
         var rect = value.sdlRect
-        if !SDL_SetSurfaceClipRect(surf, &rect) {
+        if !SDL_SetSurfaceClipRect(surf.pointer, &rect) {
             throw SDLError()
         }
     }
@@ -801,22 +812,22 @@ public class SDLSurface {
         if var sr = srcRect?.sdlRect {
             if let destPoint = destPoint {
                 var dr = SDL_Rect(x: destPoint.x, y: destPoint.y, w: 0, h: 0)
-                if !SDL_BlitSurface(src.surf, &sr, self.surf, &dr) {
+                if !SDL_BlitSurface(src.surf.pointer, &sr, self.surf.pointer, &dr) {
                     throw SDLError()
                 }
             } else {
-                if !SDL_BlitSurface(src.surf, &sr, self.surf, nil) {
+                if !SDL_BlitSurface(src.surf.pointer, &sr, self.surf.pointer, nil) {
                     throw SDLError()
                 }
             }
         } else {
             if let destPoint = destPoint {
                 var dr = SDL_Rect(x: destPoint.x, y: destPoint.y, w: 0, h: 0)
-                if !SDL_BlitSurface(src.surf, nil, self.surf, &dr) {
+                if !SDL_BlitSurface(src.surf.pointer, nil, self.surf.pointer, &dr) {
                     throw SDLError()
                 }
             } else {
-                if !SDL_BlitSurface(src.surf, nil, self.surf, nil) {
+                if !SDL_BlitSurface(src.surf.pointer, nil, self.surf.pointer, nil) {
                     throw SDLError()
                 }
             }
@@ -847,21 +858,21 @@ public class SDLSurface {
     public func blitScaled(from src: SDLSurface, in srcRect: SDLRect?, to destRect: SDLRect?, with mode: ScaleMode) throws {
         if var sr = srcRect?.sdlRect {
             if var dr = destRect?.sdlRect {
-                if !SDL_BlitSurfaceScaled(src.surf, &sr, self.surf, &dr, mode.sdlValue) {
+                if !SDL_BlitSurfaceScaled(src.surf.pointer, &sr, self.surf.pointer, &dr, mode.sdlValue) {
                     throw SDLError()
                 }
             } else {
-                if !SDL_BlitSurfaceScaled(src.surf, &sr, self.surf, nil, mode.sdlValue) {
+                if !SDL_BlitSurfaceScaled(src.surf.pointer, &sr, self.surf.pointer, nil, mode.sdlValue) {
                     throw SDLError()
                 }
             }
         } else {
             if var dr = destRect?.sdlRect {
-                if !SDL_BlitSurfaceScaled(src.surf, nil, self.surf, &dr, mode.sdlValue) {
+                if !SDL_BlitSurfaceScaled(src.surf.pointer, nil, self.surf.pointer, &dr, mode.sdlValue) {
                     throw SDLError()
                 }
             } else {
-                if !SDL_BlitSurfaceScaled(src.surf, nil, self.surf, nil, mode.sdlValue) {
+                if !SDL_BlitSurfaceScaled(src.surf.pointer, nil, self.surf.pointer, nil, mode.sdlValue) {
                     throw SDLError()
                 }
             }
@@ -889,7 +900,7 @@ public class SDLSurface {
     /// 
     public func stretch(from src: SDLSurface, in srcRect: SDLRect, to destRect: SDLRect, with mode: ScaleMode) throws {
         var sr = srcRect.sdlRect, dr = destRect.sdlRect
-        if !SDL_StretchSurface(src.surf, &sr, self.surf, &dr, mode.sdlValue) {
+        if !SDL_StretchSurface(src.surf.pointer, &sr, self.surf.pointer, &dr, mode.sdlValue) {
             throw SDLError()
         }
     }
@@ -919,21 +930,21 @@ public class SDLSurface {
     public func blitTiled(from src: SDLSurface, in srcRect: SDLRect?, to destRect: SDLRect?) throws {
         if var sr = srcRect?.sdlRect {
             if var dr = destRect?.sdlRect {
-                if !SDL_BlitSurfaceTiled(src.surf, &sr, self.surf, &dr) {
+                if !SDL_BlitSurfaceTiled(src.surf.pointer, &sr, self.surf.pointer, &dr) {
                     throw SDLError()
                 }
             } else {
-                if !SDL_BlitSurfaceTiled(src.surf, &sr, self.surf, nil) {
+                if !SDL_BlitSurfaceTiled(src.surf.pointer, &sr, self.surf.pointer, nil) {
                     throw SDLError()
                 }
             }
         } else {
             if var dr = destRect?.sdlRect {
-                if !SDL_BlitSurfaceTiled(src.surf, nil, self.surf, &dr) {
+                if !SDL_BlitSurfaceTiled(src.surf.pointer, nil, self.surf.pointer, &dr) {
                     throw SDLError()
                 }
             } else {
-                if !SDL_BlitSurfaceTiled(src.surf, nil, self.surf, nil) {
+                if !SDL_BlitSurfaceTiled(src.surf.pointer, nil, self.surf.pointer, nil) {
                     throw SDLError()
                 }
             }
@@ -969,21 +980,21 @@ public class SDLSurface {
     public func blitTiled(from src: SDLSurface, in srcRect: SDLRect?, to destRect: SDLRect?, with scale: Float, mode: ScaleMode) throws {
         if var sr = srcRect?.sdlRect {
             if var dr = destRect?.sdlRect {
-                if !SDL_BlitSurfaceTiledWithScale(src.surf, &sr, scale, mode.sdlValue, self.surf, &dr) {
+                if !SDL_BlitSurfaceTiledWithScale(src.surf.pointer, &sr, scale, mode.sdlValue, self.surf.pointer, &dr) {
                     throw SDLError()
                 }
             } else {
-                if !SDL_BlitSurfaceTiledWithScale(src.surf, &sr, scale, mode.sdlValue, self.surf, nil) {
+                if !SDL_BlitSurfaceTiledWithScale(src.surf.pointer, &sr, scale, mode.sdlValue, self.surf.pointer, nil) {
                     throw SDLError()
                 }
             }
         } else {
             if var dr = destRect?.sdlRect {
-                if !SDL_BlitSurfaceTiledWithScale(src.surf, nil, scale, mode.sdlValue, self.surf, &dr) {
+                if !SDL_BlitSurfaceTiledWithScale(src.surf.pointer, nil, scale, mode.sdlValue, self.surf.pointer, &dr) {
                     throw SDLError()
                 }
             } else {
-                if !SDL_BlitSurfaceTiledWithScale(src.surf, nil, scale, mode.sdlValue, self.surf, nil) {
+                if !SDL_BlitSurfaceTiledWithScale(src.surf.pointer, nil, scale, mode.sdlValue, self.surf.pointer, nil) {
                     throw SDLError()
                 }
             }
@@ -1026,21 +1037,21 @@ public class SDLSurface {
     public func blit9Grid(from src: SDLSurface, in srcRect: SDLRect?, to destRect: SDLRect?, leftWidth: Int32, rightWidth: Int32, topHeight: Int32, bottomHeight: Int32, with scale: Float, mode: ScaleMode) throws {
         if var sr = srcRect?.sdlRect {
             if var dr = destRect?.sdlRect {
-                if !SDL_BlitSurface9Grid(src.surf, &sr, leftWidth, rightWidth, topHeight, bottomHeight, scale, mode.sdlValue, self.surf, &dr) {
+                if !SDL_BlitSurface9Grid(src.surf.pointer, &sr, leftWidth, rightWidth, topHeight, bottomHeight, scale, mode.sdlValue, self.surf.pointer, &dr) {
                     throw SDLError()
                 }
             } else {
-                if !SDL_BlitSurface9Grid(src.surf, &sr, leftWidth, rightWidth, topHeight, bottomHeight, scale, mode.sdlValue, self.surf, nil) {
+                if !SDL_BlitSurface9Grid(src.surf.pointer, &sr, leftWidth, rightWidth, topHeight, bottomHeight, scale, mode.sdlValue, self.surf.pointer, nil) {
                     throw SDLError()
                 }
             }
         } else {
             if var dr = destRect?.sdlRect {
-                if !SDL_BlitSurface9Grid(src.surf, nil, leftWidth, rightWidth, topHeight, bottomHeight, scale, mode.sdlValue, self.surf, &dr) {
+                if !SDL_BlitSurface9Grid(src.surf.pointer, nil, leftWidth, rightWidth, topHeight, bottomHeight, scale, mode.sdlValue, self.surf.pointer, &dr) {
                     throw SDLError()
                 }
             } else {
-                if !SDL_BlitSurface9Grid(src.surf, nil, leftWidth, rightWidth, topHeight, bottomHeight, scale, mode.sdlValue, self.surf, nil) {
+                if !SDL_BlitSurface9Grid(src.surf.pointer, nil, leftWidth, rightWidth, topHeight, bottomHeight, scale, mode.sdlValue, self.surf.pointer, nil) {
                     throw SDLError()
                 }
             }
@@ -1061,7 +1072,7 @@ public class SDLSurface {
     /// - Since: This function is available since SDL 3.2.0.
     /// 
     public func clear(with color: SDLColor) throws {
-        if !SDL_ClearSurface(surf, Float(color.red) / 255.0, Float(color.green) / 255.0, Float(color.blue) / 255.0, Float(color.alpha) / 255.0) {
+        if !SDL_ClearSurface(surf.pointer, Float(color.red) / 255.0, Float(color.green) / 255.0, Float(color.blue) / 255.0, Float(color.alpha) / 255.0) {
             throw SDLError()
         }
     }
@@ -1078,7 +1089,7 @@ public class SDLSurface {
     /// - Since: This function is available since SDL 3.2.0.
     /// 
     public func premultiplyAlpha(linear: Bool) throws {
-        if !SDL_PremultiplySurfaceAlpha(surf, linear) {
+        if !SDL_PremultiplySurfaceAlpha(surf.pointer, linear) {
             throw SDLError()
         }
     }
@@ -1107,8 +1118,8 @@ public class SDLSurface {
     /// - See: SDL_DestroySurface
     /// 
     public func convert(to format: SDLPixelFormat) throws -> SDLSurface {
-        if let s = nullCheck(SDL_ConvertSurface(surf, format.fmt)) {
-            return SDLSurface(from: s, owned: true)
+        if let s = nullCheck(SDL_ConvertSurface(surf.pointer, format.fmt)) {
+            return SDLSurface(from: s.sendable, owned: true)
         } else {
             throw SDLError()
         }
@@ -1130,8 +1141,8 @@ public class SDLSurface {
     /// - See: SDL_DestroySurface
     /// 
     public func duplicate() throws -> SDLSurface {
-        if let ptr = nullCheck(SDL_DuplicateSurface(surf)) {
-            return SDLSurface(from: ptr, owned: true)
+        if let ptr = nullCheck(SDL_DuplicateSurface(surf.pointer)) {
+            return SDLSurface(from: ptr.sendable, owned: true)
         } else {
             throw SDLError()
         }
@@ -1146,7 +1157,7 @@ public class SDLSurface {
     /// - Since: This function is available since SDL 3.2.0.
     /// 
     public func flip(in direction: FlipMode) throws {
-        if !SDL_FlipSurface(surf, direction.sdlValue) {
+        if !SDL_FlipSurface(surf.pointer, direction.sdlValue) {
             throw SDLError()
         }
     }
@@ -1166,8 +1177,8 @@ public class SDLSurface {
     /// - See: SDL_DestroySurface
     /// 
     public func scale(width: Int32, height: Int32, scaleMode: ScaleMode) throws -> SDLSurface {
-        if let ptr = nullCheck(SDL_ScaleSurface(surf, width, height, scaleMode.sdlValue)) {
-            return SDLSurface(from: ptr, owned: true)
+        if let ptr = nullCheck(SDL_ScaleSurface(surf.pointer, width, height, scaleMode.sdlValue)) {
+            return SDLSurface(from: ptr.sendable, owned: true)
         } else {
             throw SDLError()
         }
@@ -1199,7 +1210,7 @@ public class SDLSurface {
     /// - See: SDL_SetPaletteColors
     /// 
     public func createPalette() throws -> SDLPalette {
-        if let res = nullCheck(SDL_CreateSurfacePalette(surf)) {
+        if let res = nullCheck(SDL_CreateSurfacePalette(surf.pointer)) {
             return SDLPalette(from: res)
         } else {
             throw SDLError()
@@ -1217,7 +1228,7 @@ public class SDLSurface {
     /// - See: SDL_SetSurfacePalette
     /// 
     public var palette: SDLPalette? {
-        if let res = nullCheck(SDL_GetSurfacePalette(surf)) {
+        if let res = nullCheck(SDL_GetSurfacePalette(surf.pointer)) {
             return SDLPalette(from: res)
         } else {
             return nil
@@ -1238,7 +1249,7 @@ public class SDLSurface {
     /// - See: SDL_GetSurfacePalette
     /// 
     public func set(palette: SDLPalette) throws {
-        if !SDL_SetSurfacePalette(surf, palette.ptr) {
+        if !SDL_SetSurfacePalette(surf.pointer, palette.ptr) {
             throw SDLError()
         }
     }
@@ -1262,10 +1273,10 @@ public class SDLSurface {
     /// - See: SDL_UnlockSurface
     /// 
     public func lock<Result>(_ body: (SDLSurface) throws -> Result) throws -> Result {
-        if !SDL_LockSurface(surf) {
+        if !SDL_LockSurface(surf.pointer) {
             throw SDLError()
         }
-        defer {SDL_UnlockSurface(surf)}
+        defer {SDL_UnlockSurface(surf.pointer)}
         return try body(self)
     }
 
@@ -1289,7 +1300,7 @@ public class SDLSurface {
     /// - See: SDL_SaveBMP
     /// 
     public func saveBMP(into rw: SDLIOStream) async throws {
-        try await rw.saveBMP(SDLIOStream.SurfacePointer(pointer: surf))
+        try await rw.saveBMP(SDLIOStream.SurfacePointer(pointer: surf.pointer))
     }
 
     /// 
@@ -1310,7 +1321,7 @@ public class SDLSurface {
     /// - See: SDL_SaveBMP_IO
     /// 
     public func saveBMP(to path: String) throws {
-        if !SDL_SaveBMP(surf, path) {
+        if !SDL_SaveBMP(surf.pointer, path) {
             throw SDLError()
         }
     }
@@ -1338,11 +1349,11 @@ public class SDLSurface {
     /// 
     public func fill(in rect: SDLRect?, with color: SDLColor) throws {
         if var sdlRect = rect?.sdlRect {
-            if !SDL_FillSurfaceRect(self.surf, &sdlRect, color.rgba(as: self.format)) {
+            if !SDL_FillSurfaceRect(self.surf.pointer, &sdlRect, color.rgba(as: self.format)) {
                 throw SDLError()
             }
         } else {
-            if !SDL_FillSurfaceRect(self.surf, nil, color.rgba(as: self.format)) {
+            if !SDL_FillSurfaceRect(self.surf.pointer, nil, color.rgba(as: self.format)) {
                 throw SDLError()
             }
         }
@@ -1375,7 +1386,7 @@ public class SDLSurface {
         for i in 0..<rects.count {
             arr[i] = rects[i].sdlRect
         }
-        if !SDL_FillSurfaceRects(surf, arr, Int32(rects.count), color.rgba(as: format)) {
+        if !SDL_FillSurfaceRects(surf.pointer, arr, Int32(rects.count), color.rgba(as: format)) {
             throw SDLError()
         }
     }
@@ -1402,7 +1413,7 @@ public class SDLSurface {
     /// - See: SDL_SurfaceHasAlternateImages
     /// 
     public func add(alternateImage image: SDLSurface) throws {
-        if !SDL_AddSurfaceAlternateImage(surf, image.surf) {
+        if !SDL_AddSurfaceAlternateImage(surf.pointer, image.surf.pointer) {
             throw SDLError()
         }
     }
@@ -1420,7 +1431,7 @@ public class SDLSurface {
     /// - See: SDL_GetSurfaceImages
     /// 
     public var hasAlternateImages: Bool {
-        return SDL_SurfaceHasAlternateImages(surf)
+        return SDL_SurfaceHasAlternateImages(surf.pointer)
     }
 
     /// 
@@ -1446,10 +1457,10 @@ public class SDLSurface {
     public var alternateImages: [SDLSurface] {
         get throws {
             var count: Int32 = 0
-            if let arr = nullCheck(SDL_GetSurfaceImages(surf, &count)) {
+            if let arr = nullCheck(SDL_GetSurfaceImages(surf.pointer, &count)) {
                 var res = [SDLSurface]()
                 for i in 0..<Int(count) {
-                    res.append(SDLSurface(from: arr[i]!, owned: false))
+                    res.append(SDLSurface(from: arr[i]!.sendable, owned: false))
                 }
                 SDL_free(arr)
                 return res
@@ -1472,7 +1483,7 @@ public class SDLSurface {
     /// - See: SDL_SurfaceHasAlternateImages
     /// 
     public func removeAlternateImages() {
-        SDL_RemoveSurfaceAlternateImages(surf)
+        SDL_RemoveSurfaceAlternateImages(surf.pointer)
     }
 
     /// 
@@ -1501,7 +1512,7 @@ public class SDLSurface {
     /// - See: SDL_MapSurfaceRGBA
     /// 
     public func map(rgb: SDLColor) -> UInt32 {
-        return SDL_MapSurfaceRGB(surf, rgb.red, rgb.green, rgb.blue)
+        return SDL_MapSurfaceRGB(surf.pointer, rgb.red, rgb.green, rgb.blue)
     }
 
     /// 
@@ -1530,7 +1541,7 @@ public class SDLSurface {
     /// - See: SDL_MapSurfaceRGB
     /// 
     public func map(rgba: SDLColor) -> UInt32 {
-        return SDL_MapSurfaceRGBA(surf, rgba.red, rgba.green, rgba.blue, rgba.alpha)
+        return SDL_MapSurfaceRGBA(surf.pointer, rgba.red, rgba.green, rgba.blue, rgba.alpha)
     }
 
     /// 
@@ -1550,7 +1561,7 @@ public class SDLSurface {
     /// 
     public func getPixel(atX x: Int32, y: Int32) throws -> SDLColor {
         var r: UInt8 = 0, g: UInt8 = 0, b: UInt8 = 0, a: UInt8 = 0
-        if !SDL_ReadSurfacePixel(surf, x, y, &r, &g, &b, &a) {
+        if !SDL_ReadSurfacePixel(surf.pointer, x, y, &r, &g, &b, &a) {
             throw SDLError()
         }
         return SDLColor(red: r, green: g, blue: b, alpha: a)
@@ -1573,14 +1584,14 @@ public class SDLSurface {
     /// - Since: This function is available since SDL 3.2.0.
     /// 
     public func setPixel(atX x: Int32, y: Int32, color: SDLColor) throws {
-        if !SDL_WriteSurfacePixel(surf, x, y, color.red, color.green, color.blue, color.alpha) {
+        if !SDL_WriteSurfacePixel(surf.pointer, x, y, color.red, color.green, color.blue, color.alpha) {
             throw SDLError()
         }
     }
 
     // TODO: SDL_ReadSurfacePixelFloat
 
-    private(set) var renderer: SDLRenderer? = nil
+    public private(set) var renderer: SDLRenderer? = nil
     
     /// 
     /// Create a 2D software rendering context for a surface.
@@ -1597,13 +1608,19 @@ public class SDLSurface {
     /// 
     /// - See also: SDL_DestroyRenderer
     /// 
-    @MainActor public func createRenderer() throws -> SDLRenderer {
+    public func createRenderer() async throws -> SDLRenderer {
         if let r = renderer {
             return r
         }
-        if let ren = SDL_CreateSoftwareRenderer(surf) {
-            renderer = SDLRenderer(rawValue: ren)
-            return renderer!
+        if let ren = await MainActor.run(body: {
+            if let ptr = SDL_CreateSoftwareRenderer(surf.pointer) {
+                return SDLRenderer(rawValue: ptr)
+            } else {
+                return nil
+            }
+        }) {
+            renderer = ren
+            return ren
         } else {
             throw SDLError()
         }

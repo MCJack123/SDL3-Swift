@@ -35,10 +35,40 @@ internal func nullCheck(_ val: UnsafeMutableRawPointer!) -> UnsafeMutableRawPoin
     return val
 }
 
+internal struct SendableUnsafePointer<T>: @unchecked Sendable {
+    public let pointer: UnsafePointer<T>
+    public var pointee: T {
+        return pointer.pointee
+    }
+}
+
+internal struct SendableUnsafeMutablePointer<T>: @unchecked Sendable {
+    public let pointer: UnsafeMutablePointer<T>
+    public var pointee: T {
+        return pointer.pointee
+    }
+}
+
+internal struct SendableMutableRawPointer: @unchecked Sendable {
+    public let pointer: UnsafeMutableRawPointer
+}
+
+public struct SendableMutableRawBufferPointer: @unchecked Sendable {
+    public let pointer: UnsafeMutableRawBufferPointer
+}
+
+internal struct SendablePointer: @unchecked Sendable {
+    public let pointer: OpaquePointer
+}
+
 internal extension UnsafePointer {
     func qpointer<Property>(to property: KeyPath<Pointee, Property>) -> UnsafePointer<Property>? {
         guard let offset = MemoryLayout<Pointee>.offset(of: property) else { return nil }
         return (UnsafeRawPointer(self) + offset).assumingMemoryBound(to: Property.self)
+    }
+
+    var sendable: SendableUnsafePointer<Pointee> {
+        return SendableUnsafePointer(pointer: self)
     }
 }
 
@@ -47,12 +77,34 @@ internal extension UnsafeMutablePointer {
         guard let offset = MemoryLayout<Pointee>.offset(of: property) else { return nil }
         return (UnsafeMutableRawPointer(self) + offset).assumingMemoryBound(to: Property.self)
     }
+
+    var sendable: SendableUnsafeMutablePointer<Pointee> {
+        return SendableUnsafeMutablePointer(pointer: self)
+    }
+}
+
+internal extension UnsafeMutableRawPointer {
+    var sendable: SendableMutableRawPointer {
+        return SendableMutableRawPointer(pointer: self)
+    }
+}
+
+internal extension UnsafeMutableRawBufferPointer {
+    var sendable: SendableMutableRawBufferPointer {
+        return SendableMutableRawBufferPointer(pointer: self)
+    }
+}
+
+internal extension OpaquePointer {
+    var sendable: SendablePointer {
+        return SendablePointer(pointer: self)
+    }
 }
 
 @attached(extension, names: named(sdl), named(sdlValue))
 internal macro EnumWrapper(_ type: Any) = #externalMacro(module: "SDL3Macros", type: "EnumWrapper")
 
-public struct SDLInitFlags: OptionSet {
+public struct SDLInitFlags: OptionSet, Sendable {
     public let rawValue: UInt32
     public init(rawValue val: UInt32) {rawValue = val}
     public static let audio = SDLInitFlags(rawValue: SDL_INIT_AUDIO)

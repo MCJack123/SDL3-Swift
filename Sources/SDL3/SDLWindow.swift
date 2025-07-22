@@ -8,7 +8,7 @@ public struct SDLMessageBox {
     /// 
     /// - Since: This datatype is available since SDL 3.2.0.
     /// 
-    public enum BoxType: UInt32 {
+    public enum BoxType: UInt32, Sendable {
         case `default` = 0
         case error = 0x10
         case warning = 0x20
@@ -22,7 +22,7 @@ public struct SDLMessageBox {
     /// 
     /// - Since: This datatype is available since SDL 3.2.0.
     /// 
-    public enum ButtonOrder: UInt32 {
+    public enum ButtonOrder: UInt32, Sendable {
         case `default` = 0
         case leftToRight = 0x80
         case rightToLeft = 0x100
@@ -33,7 +33,7 @@ public struct SDLMessageBox {
     /// 
     /// - Since: This datatype is available since SDL 3.2.0.
     /// 
-    public enum DefaultButton: UInt32 {
+    public enum DefaultButton: UInt32, Sendable {
         case none = 0
         case returnKey = 1
         case escapeKey = 2
@@ -73,6 +73,7 @@ public struct SDLMessageBox {
 
     internal class SDLData {
         internal let pointer: UnsafeMutablePointer<SDL_MessageBoxData>
+        @MainActor
         internal init(for boxData: SDLMessageBox) {
             let arr = UnsafeMutablePointer<SDL_MessageBoxButtonData>.allocate(capacity: boxData.buttons.count)
             for i in 0..<boxData.buttons.count {
@@ -113,6 +114,7 @@ public struct SDLMessageBox {
         }
     }
 
+    @MainActor
     internal var sdlData: SDLData {
         return SDLData(for: self)
     }
@@ -171,12 +173,22 @@ public protocol SDLWindowHitTestDelegate {
     func hitTest(in: SDLWindow, at: SDLPoint) -> SDLWindow.HitTestResult
 }
 
+fileprivate class SDLWindowHitTestDelegateBox {
+    public let delegate: any SDLWindowHitTestDelegate
+    public let window: SDLWindow
+    init(delegate: any SDLWindowHitTestDelegate, window: SDLWindow) {
+        self.delegate = delegate
+        self.window = window
+    }
+}
+
 /// 
 /// The struct used as a handle to a window.
 /// 
 /// - Since: This struct is available since SDL 3.2.0.
 /// 
-public class SDLWindow: Equatable {
+@MainActor
+public final class SDLWindow: Sendable {
     /// 
     /// The flags on a window.
     /// 
@@ -189,7 +201,7 @@ public class SDLWindow: Equatable {
     /// 
     /// - See: ``SDLWindow.flags``
     /// 
-    public struct Flags: OptionSet {
+    public struct Flags: OptionSet, Sendable {
         public let rawValue: UInt64
         public init(rawValue v: UInt64) {rawValue = v}
         /// window is in fullscreen mode
@@ -373,10 +385,6 @@ public class SDLWindow: Equatable {
         }
     }
 
-    public static func == (lhs: SDLWindow, rhs: SDLWindow) -> Bool {
-        return lhs.window == rhs.window
-    }
-
     /// 
     /// Get a window from a stored ID.
     /// 
@@ -402,7 +410,7 @@ public class SDLWindow: Equatable {
         }
     }
 
-    internal let window: OpaquePointer
+    nonisolated(unsafe) internal let window: OpaquePointer
     private let owned: Bool
 
     private init(rawValue: OpaquePointer, owned: Bool) {
@@ -518,7 +526,8 @@ public class SDLWindow: Equatable {
     /// - See also: SDL_CreateRenderer
     /// - See also: SDL_CreateWindow
     /// 
-    @MainActor public init(withRendererNamed title: String, width: Int32, height: Int32, flags: Flags) throws {
+    @MainActor
+    public init(withRendererNamed title: String, width: Int32, height: Int32, flags: Flags) throws {
         var ren: OpaquePointer?
         var win: OpaquePointer?
         if SDL_CreateWindowAndRenderer(title, width, height, flags.rawValue, &win, &ren) {
@@ -534,7 +543,6 @@ public class SDLWindow: Equatable {
 
     deinit {
         if owned {
-            renderer = nil
             SDL_DestroyWindow(window)
         }
     }
@@ -1001,7 +1009,7 @@ public class SDLWindow: Equatable {
         return SDL_WindowHasSurface(window)
     }
 
-    fileprivate var hitTestDelegate: SDLWindowHitTestDelegate?
+    private var hitTestDelegate: SDLWindowHitTestDelegateBox?
 
     /// 
     /// Provide a callback that decides if a window region has special properties.
@@ -1049,12 +1057,14 @@ public class SDLWindow: Equatable {
         if !owned {
             throw SDLError(message: "This method can only be called on the owning instance.")
         }
-        hitTestDelegate = value
         let ok: Bool
-        if value != nil {
-            ok = SDL_SetWindowHitTest(window, hitTestCallback, Unmanaged.passUnretained(self).toOpaque())
+        if let value = value {
+            let box = SDLWindowHitTestDelegateBox(delegate: value, window: self)
+            ok = SDL_SetWindowHitTest(window, hitTestCallback, Unmanaged.passUnretained(box).toOpaque())
+            hitTestDelegate = box
         } else {
             ok = SDL_SetWindowHitTest(window, nil, nil)
+            hitTestDelegate = nil
         }
         if !ok {
             throw SDLError()
@@ -1685,7 +1695,7 @@ public class SDLWindow: Equatable {
     /// 
     @MainActor
     public func set(shape value: SDLSurface) throws {
-        if !SDL_SetWindowShape(window, value.surf) {
+        if !SDL_SetWindowShape(window, value.surf.pointer) {
             throw SDLError()
         }
     }
@@ -1801,11 +1811,21 @@ public class SDLWindow: Equatable {
         }
     }
 
-    public func flash(operation: FlashOperation) -> SDLError? {
+    /// 
+    /// Request a window to demand attention from the user.
+    /// 
+    /// - Parameter operation: the operation to perform.
+    /// - Throws: ``SDLError`` if the function fails.
+    /// 
+    /// - Warning: This function should only be called on the main thread.
+    /// 
+    /// - Since: This function is available since SDL 3.2.0.
+    /// 
+    @MainActor
+    public func flash(operation: FlashOperation) throws {
         if !SDL_FlashWindow(window, operation.sdlValue) {
-            return SDLError()
+            throw SDLError()
         }
-        return nil
     }
 
     /// 
@@ -1888,7 +1908,7 @@ public class SDLWindow: Equatable {
     public var surface: SDLSurface {
         get throws {
             if let surface = nullCheck(SDL_GetWindowSurface(window)) {
-                return SDLSurface(from: surface, owned: false)
+                return SDLSurface(from: surface.sendable, owned: false)
             } else {
                 throw SDLError()
             }
@@ -2199,6 +2219,7 @@ public class SDLWindow: Equatable {
     /// - See: SDL_MinimizeWindow
     /// - See: SDL_SyncWindow
     /// 
+    @MainActor
     public func restore() throws {
         if !SDL_RestoreWindow(window) {
             throw SDLError()
@@ -2228,7 +2249,7 @@ public class SDLWindow: Equatable {
     /// 
     @MainActor
     public func set(icon: SDLSurface) throws {
-        if !SDL_SetWindowIcon(window, icon.surf) {
+        if !SDL_SetWindowIcon(window, icon.surf.pointer) {
             throw SDLError()
         }
     }
@@ -2504,7 +2525,8 @@ public class SDLWindow: Equatable {
     /// - See also: SDL_GetRenderDriver
     /// - See also: SDL_GetRendererName
     /// 
-    @MainActor public func createRenderer(with driver: String) throws -> SDLRenderer {
+    @MainActor
+    public func createRenderer(with driver: String) throws -> SDLRenderer {
         if let r = renderer {
             return r // TODO: should we error?
         }
@@ -2693,11 +2715,8 @@ public class SDLWindow: Equatable {
 }
 
 fileprivate func hitTestCallback(_ window: OpaquePointer!, _ area: UnsafePointer<SDL_Point>!, _ data: UnsafeMutableRawPointer!) -> SDL_HitTestResult {
-    let obj = Unmanaged<SDLWindow>.fromOpaque(data!).takeUnretainedValue()
-    if let delegate = obj.hitTestDelegate {
-        return delegate.hitTest(in: obj, at: SDLPoint(from: area.pointee)).sdlValue
-    }
-    return SDL_HITTEST_NORMAL
+    let obj = Unmanaged<SDLWindowHitTestDelegateBox>.fromOpaque(data!).takeUnretainedValue()
+    return obj.delegate.hitTest(in: obj.window, at: SDLPoint(from: area.pointee)).sdlValue
 }
 
 #if canImport(Metal)

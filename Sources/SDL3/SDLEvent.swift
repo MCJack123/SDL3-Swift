@@ -76,7 +76,7 @@ public enum SDLEvent {
         }
     }
 
-    internal static var eventMap: [UInt32: SDLEventType.Type] = [
+    nonisolated(unsafe) internal static var eventMap: [UInt32: SDLEventType.Type] = [
         SDL_EVENT_QUIT.rawValue: SDLQuitEvent.self,
         SDL_EVENT_DISPLAY_ORIENTATION.rawValue: SDLDisplayOrientationEvent.self,
         SDL_EVENT_DISPLAY_ADDED.rawValue: SDLDisplayAddedEvent.self,
@@ -114,11 +114,15 @@ public enum SDLEvent {
         SDL_EVENT_MOUSE_WHEEL.rawValue: SDLMouseWheelEvent.self,
     ]
 
+    nonisolated(unsafe) internal static let eventMapLock = SDLMutex()
+
     internal static func make(event: SDL_Event) -> SDLEventType {
-        if let T = eventMap[event.type] {
-            return T.init(from: event)
+        return eventMapLock.lock {
+            if let T = eventMap[event.type] {
+                return T.init(from: event)
+            }
+            return SDLUnknownEvent()
         }
-        return SDLUnknownEvent()
     }
 
     /// 
@@ -419,7 +423,7 @@ public extension SDLDisplayEvent {
 }
 
 public struct SDLDisplayOrientationEvent: SDLDisplayEvent {
-    public static var type: SDL_EventType = SDL_EVENT_DISPLAY_ORIENTATION
+    public static let type: SDL_EventType = SDL_EVENT_DISPLAY_ORIENTATION
     public var timestamp: UInt64 = 0
     public var display: SDLDisplay
     public var data1: Int32 = 0
@@ -427,7 +431,7 @@ public struct SDLDisplayOrientationEvent: SDLDisplayEvent {
 }
 
 public struct SDLDisplayAddedEvent: SDLDisplayEvent {
-    public static var type: SDL_EventType = SDL_EVENT_DISPLAY_ADDED
+    public static let type: SDL_EventType = SDL_EVENT_DISPLAY_ADDED
     public var display: SDLDisplay
     public var data1: Int32 = 0
     public var timestamp: UInt64 = 0
@@ -435,7 +439,7 @@ public struct SDLDisplayAddedEvent: SDLDisplayEvent {
 }
 
 public struct SDLDisplayRemovedEvent: SDLDisplayEvent {
-    public static var type: SDL_EventType = SDL_EVENT_DISPLAY_REMOVED
+    public static let type: SDL_EventType = SDL_EVENT_DISPLAY_REMOVED
     public var timestamp: UInt64 = 0
     public var display: SDLDisplay
     public var data1: Int32 = 0
@@ -443,7 +447,7 @@ public struct SDLDisplayRemovedEvent: SDLDisplayEvent {
 }
 
 public struct SDLDisplayMovedEvent: SDLDisplayEvent {
-    public static var type: SDL_EventType = SDL_EVENT_DISPLAY_MOVED
+    public static let type: SDL_EventType = SDL_EVENT_DISPLAY_MOVED
     public var timestamp: UInt64 = 0
     public var display: SDLDisplay
     public var data1: Int32 = 0
@@ -451,7 +455,7 @@ public struct SDLDisplayMovedEvent: SDLDisplayEvent {
 }
 
 public struct SDLDisplayContentScaleChangedEvent: SDLDisplayEvent {
-    public static var type: SDL_EventType = SDL_EVENT_DISPLAY_CONTENT_SCALE_CHANGED
+    public static let type: SDL_EventType = SDL_EVENT_DISPLAY_CONTENT_SCALE_CHANGED
     public var timestamp: UInt64 = 0
     public var display: SDLDisplay
     public var data1: Int32 = 0
@@ -491,7 +495,7 @@ public extension SDLWindowEvent {
 }
 
 public struct SDLWindowShownEvent: SDLWindowEvent {
-    public static var type: SDL_EventType = SDL_EVENT_WINDOW_SHOWN
+    public static let type: SDL_EventType = SDL_EVENT_WINDOW_SHOWN
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var data1: Int32 = 0
@@ -500,7 +504,7 @@ public struct SDLWindowShownEvent: SDLWindowEvent {
 }
 
 public struct SDLWindowHiddenEvent: SDLWindowEvent {
-    public static var type: SDL_EventType = SDL_EVENT_WINDOW_HIDDEN
+    public static let type: SDL_EventType = SDL_EVENT_WINDOW_HIDDEN
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var data1: Int32 = 0
@@ -509,7 +513,7 @@ public struct SDLWindowHiddenEvent: SDLWindowEvent {
 }
 
 public struct SDLWindowExposedEvent: SDLWindowEvent {
-    public static var type: SDL_EventType = SDL_EVENT_WINDOW_EXPOSED
+    public static let type: SDL_EventType = SDL_EVENT_WINDOW_EXPOSED
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var data1: Int32 = 0
@@ -518,7 +522,7 @@ public struct SDLWindowExposedEvent: SDLWindowEvent {
 }
 
 public struct SDLWindowMovedEvent: SDLWindowEvent {
-    public static var type: SDL_EventType = SDL_EVENT_WINDOW_MOVED
+    public static let type: SDL_EventType = SDL_EVENT_WINDOW_MOVED
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var data1: Int32 = 0
@@ -527,7 +531,7 @@ public struct SDLWindowMovedEvent: SDLWindowEvent {
 }
 
 public struct SDLWindowResizedEvent: SDLWindowEvent {
-    public static var type: SDL_EventType = SDL_EVENT_WINDOW_RESIZED
+    public static let type: SDL_EventType = SDL_EVENT_WINDOW_RESIZED
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var data1: Int32 = 0
@@ -536,7 +540,7 @@ public struct SDLWindowResizedEvent: SDLWindowEvent {
 }
 
 public struct SDLWindowPixelSizeChangedEvent: SDLWindowEvent {
-    public static var type: SDL_EventType = SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED
+    public static let type: SDL_EventType = SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var data1: Int32 = 0
@@ -545,7 +549,7 @@ public struct SDLWindowPixelSizeChangedEvent: SDLWindowEvent {
 }
 
 public struct SDLWindowMinimizedEvent: SDLWindowEvent {
-    public static var type: SDL_EventType = SDL_EVENT_WINDOW_MINIMIZED
+    public static let type: SDL_EventType = SDL_EVENT_WINDOW_MINIMIZED
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var data1: Int32 = 0
@@ -554,7 +558,7 @@ public struct SDLWindowMinimizedEvent: SDLWindowEvent {
 }
 
 public struct SDLWindowMaximizedEvent: SDLWindowEvent {
-    public static var type: SDL_EventType = SDL_EVENT_WINDOW_MAXIMIZED
+    public static let type: SDL_EventType = SDL_EVENT_WINDOW_MAXIMIZED
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var data1: Int32 = 0
@@ -563,7 +567,7 @@ public struct SDLWindowMaximizedEvent: SDLWindowEvent {
 }
 
 public struct SDLWindowRestoredEvent: SDLWindowEvent {
-    public static var type: SDL_EventType = SDL_EVENT_WINDOW_RESTORED
+    public static let type: SDL_EventType = SDL_EVENT_WINDOW_RESTORED
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var data1: Int32 = 0
@@ -572,7 +576,7 @@ public struct SDLWindowRestoredEvent: SDLWindowEvent {
 }
 
 public struct SDLWindowMouseEnterEvent: SDLWindowEvent {
-    public static var type: SDL_EventType = SDL_EVENT_WINDOW_MOUSE_ENTER
+    public static let type: SDL_EventType = SDL_EVENT_WINDOW_MOUSE_ENTER
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var data1: Int32 = 0
@@ -581,7 +585,7 @@ public struct SDLWindowMouseEnterEvent: SDLWindowEvent {
 }
 
 public struct SDLWindowMouseLeaveEvent: SDLWindowEvent {
-    public static var type: SDL_EventType = SDL_EVENT_WINDOW_MOUSE_LEAVE
+    public static let type: SDL_EventType = SDL_EVENT_WINDOW_MOUSE_LEAVE
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var data1: Int32 = 0
@@ -590,7 +594,7 @@ public struct SDLWindowMouseLeaveEvent: SDLWindowEvent {
 }
 
 public struct SDLWindowFocusGainedEvent: SDLWindowEvent {
-    public static var type: SDL_EventType = SDL_EVENT_WINDOW_FOCUS_GAINED
+    public static let type: SDL_EventType = SDL_EVENT_WINDOW_FOCUS_GAINED
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var data1: Int32 = 0
@@ -599,7 +603,7 @@ public struct SDLWindowFocusGainedEvent: SDLWindowEvent {
 }
 
 public struct SDLWindowFocusLostEvent: SDLWindowEvent {
-    public static var type: SDL_EventType = SDL_EVENT_WINDOW_FOCUS_LOST
+    public static let type: SDL_EventType = SDL_EVENT_WINDOW_FOCUS_LOST
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var data1: Int32 = 0
@@ -608,7 +612,7 @@ public struct SDLWindowFocusLostEvent: SDLWindowEvent {
 }
 
 public struct SDLWindowCloseRequestedEvent: SDLWindowEvent {
-    public static var type: SDL_EventType = SDL_EVENT_WINDOW_CLOSE_REQUESTED
+    public static let type: SDL_EventType = SDL_EVENT_WINDOW_CLOSE_REQUESTED
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var data1: Int32 = 0
@@ -617,7 +621,7 @@ public struct SDLWindowCloseRequestedEvent: SDLWindowEvent {
 }
 
 public struct SDLWindowHitTestEvent: SDLWindowEvent {
-    public static var type: SDL_EventType = SDL_EVENT_WINDOW_HIT_TEST
+    public static let type: SDL_EventType = SDL_EVENT_WINDOW_HIT_TEST
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var data1: Int32 = 0
@@ -626,7 +630,7 @@ public struct SDLWindowHitTestEvent: SDLWindowEvent {
 }
 
 public struct SDLWindowIccprofChangedEvent: SDLWindowEvent {
-    public static var type: SDL_EventType = SDL_EVENT_WINDOW_ICCPROF_CHANGED
+    public static let type: SDL_EventType = SDL_EVENT_WINDOW_ICCPROF_CHANGED
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var data1: Int32 = 0
@@ -635,7 +639,7 @@ public struct SDLWindowIccprofChangedEvent: SDLWindowEvent {
 }
 
 public struct SDLWindowDisplayChangedEvent: SDLWindowEvent {
-    public static var type: SDL_EventType = SDL_EVENT_WINDOW_DISPLAY_CHANGED
+    public static let type: SDL_EventType = SDL_EVENT_WINDOW_DISPLAY_CHANGED
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var data1: Int32 = 0
@@ -644,7 +648,7 @@ public struct SDLWindowDisplayChangedEvent: SDLWindowEvent {
 }
 
 public struct SDLWindowDisplayScaleChangedEvent: SDLWindowEvent {
-    public static var type: SDL_EventType = SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED
+    public static let type: SDL_EventType = SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var data1: Int32 = 0
@@ -653,7 +657,7 @@ public struct SDLWindowDisplayScaleChangedEvent: SDLWindowEvent {
 }
 
 public struct SDLWindowOccludedEvent: SDLWindowEvent {
-    public static var type: SDL_EventType = SDL_EVENT_WINDOW_OCCLUDED
+    public static let type: SDL_EventType = SDL_EVENT_WINDOW_OCCLUDED
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var data1: Int32 = 0
@@ -662,7 +666,7 @@ public struct SDLWindowOccludedEvent: SDLWindowEvent {
 }
 
 public struct SDLWindowDestroyedEvent: SDLWindowEvent {
-    public static var type: SDL_EventType = SDL_EVENT_WINDOW_DESTROYED
+    public static let type: SDL_EventType = SDL_EVENT_WINDOW_DESTROYED
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var data1: Int32 = 0
@@ -728,7 +732,7 @@ public struct SDLKeyDownEvent: SDLKeyboardEvent {
     public var modifiers: SDLKeyModifiers = .none
     public var timestamp: UInt64 = 0
     public var which: UInt32 = 0
-    public static var type: SDL_EventType = SDL_EVENT_KEY_DOWN
+    public static let type: SDL_EventType = SDL_EVENT_KEY_DOWN
     public init() {}
 }
 
@@ -741,12 +745,12 @@ public struct SDLKeyUpEvent: SDLKeyboardEvent {
     public var modifiers: SDLKeyModifiers = .none
     public var timestamp: UInt64 = 0
     public var which: UInt32 = 0
-    public static var type: SDL_EventType = SDL_EVENT_KEY_UP
+    public static let type: SDL_EventType = SDL_EVENT_KEY_UP
     public init() {}
 }
 
 public struct SDLTextEditingEvent: SDLWindowedEvent {
-    public static var type: SDL_EventType = SDL_EVENT_TEXT_EDITING
+    public static let type: SDL_EventType = SDL_EVENT_TEXT_EDITING
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var text: String = ""
@@ -777,7 +781,7 @@ public struct SDLTextEditingEvent: SDLWindowedEvent {
 }
 
 public struct SDLTextInputEvent: SDLWindowedEvent {
-    public static var type: SDL_EventType = SDL_EVENT_TEXT_INPUT
+    public static let type: SDL_EventType = SDL_EVENT_TEXT_INPUT
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var text: String = ""
@@ -802,7 +806,7 @@ public struct SDLTextInputEvent: SDLWindowedEvent {
 }
 
 public struct SDLKeymapChangedEvent: SDLEventType {
-    public static var type: SDL_EventType = SDL_EVENT_KEYMAP_CHANGED
+    public static let type: SDL_EventType = SDL_EVENT_KEYMAP_CHANGED
     public var timestamp: UInt64 = 0
     public var sdlEvent: SDL_Event {
         return SDLEvent.stub(for: self)
@@ -847,7 +851,7 @@ public extension SDLMouseButtonEvent {
 }
 
 public struct SDLMouseButtonDownEvent: SDLMouseButtonEvent {
-    public static var type: SDL_EventType = SDL_EVENT_MOUSE_BUTTON_DOWN
+    public static let type: SDL_EventType = SDL_EVENT_MOUSE_BUTTON_DOWN
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var mouseID: UInt32 = 0
@@ -860,7 +864,7 @@ public struct SDLMouseButtonDownEvent: SDLMouseButtonEvent {
 }
 
 public struct SDLMouseButtonUpEvent: SDLMouseButtonEvent {
-    public static var type: SDL_EventType = SDL_EVENT_MOUSE_BUTTON_UP
+    public static let type: SDL_EventType = SDL_EVENT_MOUSE_BUTTON_UP
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var mouseID: UInt32 = 0
@@ -873,7 +877,7 @@ public struct SDLMouseButtonUpEvent: SDLMouseButtonEvent {
 }
 
 public struct SDLMouseMotionEvent: SDLWindowedEvent {
-    public static var type: SDL_EventType = SDL_EVENT_MOUSE_MOTION
+    public static let type: SDL_EventType = SDL_EVENT_MOUSE_MOTION
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var mouseID: UInt32 = 0
@@ -909,7 +913,7 @@ public struct SDLMouseMotionEvent: SDLWindowedEvent {
 }
 
 public struct SDLMouseWheelEvent: SDLWindowedEvent {
-    public static var type: SDL_EventType = SDL_EVENT_MOUSE_WHEEL
+    public static let type: SDL_EventType = SDL_EVENT_MOUSE_WHEEL
     public var timestamp: UInt64 = 0
     public var windowID: UInt32 = 0
     public var mouseID: UInt32 = 0
@@ -986,10 +990,12 @@ open class SDLUserEventBase {
         if let T = type(of: self) as? SDLUserEvent.Type {
             if T._type == nil {
                 T._type = SDL_RegisterEvents(1)
-                SDLEvent.eventMap[T._type] = T
+                SDLEvent.eventMapLock.lock {
+                    SDLEvent.eventMap[T._type] = T
+                }
             }
         } else {
-            assert(false, "User event type \(type(of: self)) must conform to SDLUserEvent")
+            fatalError("User event type \(type(of: self)) must conform to SDLUserEvent")
         }
     }
 }

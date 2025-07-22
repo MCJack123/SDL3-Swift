@@ -1,6 +1,6 @@
 import SDL3_Native
 
-public struct SDLPixelFormat {
+public struct SDLPixelFormat: Sendable {
     public static let unknown = SDLPixelFormat(from: SDL_PIXELFORMAT_UNKNOWN)
     public static let index1LSB = SDLPixelFormat(from: SDL_PIXELFORMAT_INDEX1LSB)
     public static let index1MSB = SDLPixelFormat(from: SDL_PIXELFORMAT_INDEX1MSB)
@@ -242,11 +242,11 @@ public class SDLPalette {
 /// 
 /// - Since: This struct is available since SDL 3.2.0.
 /// 
-public struct SDLColor {
-    var red: UInt8 = 0
-    var green: UInt8 = 0
-    var blue: UInt8 = 0
-    var alpha: UInt8 = 255
+public struct SDLColor: Equatable, Sendable {
+    public var red: UInt8 = 0
+    public var green: UInt8 = 0
+    public var blue: UInt8 = 0
+    public var alpha: UInt8 = 255
 
     internal init(from color: SDL_Color) {
         red = color.r
@@ -319,10 +319,10 @@ public struct SDLColor {
 /// - Since: This struct is available since SDL 3.2.0.
 /// 
 public struct SDLFColor {
-    var red: Float = 0.0
-    var green: Float = 0.0
-    var blue: Float = 0.0
-    var alpha: Float = 1.0
+    public var red: Float = 0.0
+    public var green: Float = 0.0
+    public var blue: Float = 0.0
+    public var alpha: Float = 1.0
 
     internal init(from color: SDL_FColor) {
         red = color.r

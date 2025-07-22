@@ -1,4 +1,4 @@
-// swift-tools-version: 5.10
+// swift-tools-version: 6.1
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -19,7 +19,7 @@ let package = Package(
     dependencies: [
         .package(name: "SDL3_Native", path: "Packages/SDL3_Native"),
         .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.0.0"),
-        .package(url: "https://github.com/swiftlang/swift-syntax", from: "510.0.0"),
+        .package(url: "https://github.com/swiftlang/swift-syntax", from: "601.0.0"),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.

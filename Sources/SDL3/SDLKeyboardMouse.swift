@@ -278,7 +278,7 @@ public class SDLCursor {
     /// 
     @MainActor
     public init(using surface: SDLSurface, offsetX: Int32, offsetY: Int32) throws {
-        if let ptr = SDL_CreateColorCursor(surface.surf, offsetX, offsetY) {
+        if let ptr = SDL_CreateColorCursor(surface.surf.pointer, offsetX, offsetY) {
             pointer = ptr
             owned = true
         } else {
@@ -502,7 +502,7 @@ public enum SDLMouse {
     /// \sa SDL_GetGlobalMouseState
     /// \sa SDL_GetRelativeMouseState
     /// 
-    public struct ButtonFlags: OptionSet {
+    public struct ButtonFlags: OptionSet, Sendable {
         public let rawValue: UInt32
         public init(rawValue val: UInt32) {rawValue = val}
         public static let left = ButtonFlags(rawValue: 1)

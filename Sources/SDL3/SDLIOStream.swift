@@ -91,7 +91,7 @@ public actor SDLIOStream {
         case writeOnly
     }
 
-    internal let sdlIOStream: OpaquePointer
+    nonisolated(unsafe) internal let sdlIOStream: OpaquePointer
     fileprivate let delegate: SDLIOStreamDelegateBox!
 
     /// 
@@ -118,11 +118,14 @@ public actor SDLIOStream {
     /// - See: SDL_IOFromMem
     /// 
     public init(for delegate: any SDLIOStreamDelegate) throws {
-        self.delegate = SDLIOStreamDelegateBox(delegate: delegate)
-        if let ptr = nullCheck(SDL_OpenIO(&IOStreamImpl, Unmanaged.passUnretained(self.delegate).toOpaque())) {
-            self.sdlIOStream = ptr
-        } else {
-            throw SDLError()
+        let d = SDLIOStreamDelegateBox(delegate: delegate)
+        self.delegate = d
+        self.sdlIOStream = try withUnsafePointer(to: IOStreamImpl) { _IOStreamImpl in
+            if let ptr = nullCheck(SDL_OpenIO(_IOStreamImpl, Unmanaged.passUnretained(d).toOpaque())) {
+                return ptr
+            } else {
+                throw SDLError()
+            }
         }
     }
 
@@ -347,10 +350,6 @@ public actor SDLIOStream {
         }
     }
 
-    // SDL_CloseIO is not thread safe, deinit should be isolated if available
-    #if swift(>=6.2)
-    isolated
-    #endif
     deinit {
         SDL_CloseIO(sdlIOStream)
     }
@@ -1373,7 +1372,7 @@ fileprivate func IOStream_close(_ context: UnsafeMutableRawPointer?) -> Bool {
     return delegate.close()
 }
 
-fileprivate var IOStreamImpl = SDL_IOStreamInterface(
+fileprivate let IOStreamImpl = SDL_IOStreamInterface(
     version: UInt32(MemoryLayout<SDL_IOStreamInterface>.size),
     size: IOStream_size,
     seek: IOStream_seek,

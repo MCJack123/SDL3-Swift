@@ -33,7 +33,8 @@ public struct SDLVertex {
 /// - See also: SDL_CreateTextureWithProperties
 /// - See also: SDL_DestroyTexture
 /// 
-public class SDLTexture {
+@MainActor
+public class SDLTexture: Sendable {
     /// 
     /// The access pattern allowed for a texture.
     /// 
@@ -49,7 +50,7 @@ public class SDLTexture {
         case target = 2
     }
 
-    internal let texture: UnsafeMutablePointer<SDL_Texture>
+    nonisolated(unsafe) internal let texture: UnsafeMutablePointer<SDL_Texture>
     private let owned: Bool
     public unowned let renderer: SDLRenderer
 
@@ -506,7 +507,7 @@ public class SDLTexture {
             throw SDLError()
         }
         defer {SDL_UnlockTexture(texture)}
-        return try body(SDLSurface(from: surface!, owned: false))
+        return try body(SDLSurface(from: surface!.sendable, owned: false))
     }
 
     /// 
@@ -539,7 +540,7 @@ public class SDLTexture {
             throw SDLError()
         }
         defer {SDL_UnlockTexture(texture)}
-        return try body(SDLSurface(from: surface!, owned: false))
+        return try body(SDLSurface(from: surface!.sendable, owned: false))
     }
 
     /// 
@@ -562,7 +563,7 @@ public class SDLTexture {
     /// - See also: SDL_UnlockTexture
     /// 
     @MainActor
-    public func withLockedData<R>(in rect: SDLRect, _ body: (UnsafeMutableRawBufferPointer, Int32) async throws -> R) async throws -> R {
+    public func withLockedData<R: Sendable>(in rect: SDLRect, _ body: (SendableMutableRawBufferPointer, Int32) async throws -> R) async throws -> R {
         var pixels = UnsafeMutableRawPointer(bitPattern: 0)
         var pitch: Int32 = 0
         var rect = rect.sdlRect
@@ -570,7 +571,7 @@ public class SDLTexture {
             throw SDLError()
         }
         defer {SDL_UnlockTexture(texture)}
-        return try await body(UnsafeMutableRawBufferPointer(start: pixels, count: Int(rect.h * pitch)), pitch)
+        return try await body(UnsafeMutableRawBufferPointer(start: pixels, count: Int(rect.h * pitch)).sendable, pitch)
     }
 
     /// 
@@ -592,7 +593,7 @@ public class SDLTexture {
     /// - See also: SDL_UnlockTexture
     /// 
     @MainActor
-    public func withLockedData<R>(_ body: (UnsafeMutableRawBufferPointer, Int32) async throws -> R) async throws -> R {
+    public func withLockedData<R: Sendable>(_ body: (SendableMutableRawBufferPointer, Int32) async throws -> R) async throws -> R {
         var pixels = UnsafeMutableRawPointer(bitPattern: 0)
         var pitch: Int32 = 0
         let size = try self.size
@@ -600,7 +601,7 @@ public class SDLTexture {
             throw SDLError()
         }
         defer {SDL_UnlockTexture(texture)}
-        return try await body(UnsafeMutableRawBufferPointer(start: pixels, count: Int(Int32(size.height) * pitch)), pitch)
+        return try await body(UnsafeMutableRawBufferPointer(start: pixels, count: Int(Int32(size.height) * pitch)).sendable, pitch)
     }
 
     /// 
@@ -627,14 +628,14 @@ public class SDLTexture {
     /// - See also: SDL_UnlockTexture
     /// 
     @MainActor
-    public func withLockedSurface<R>(in rect: SDLRect, _ body: (SDLSurface) async throws -> R) async throws -> R {
+    public func withLockedSurface<R: Sendable>(in rect: SDLRect, _ body: (SDLSurface) async throws -> R) async throws -> R {
         var surface: UnsafeMutablePointer<SDL_Surface>?
         var rect = rect.sdlRect
         if !SDL_LockTextureToSurface(texture, &rect, &surface) {
             throw SDLError()
         }
         defer {SDL_UnlockTexture(texture)}
-        return try await body(SDLSurface(from: surface!, owned: false))
+        return try await body(SDLSurface(from: surface!.sendable, owned: false))
     }
 
     /// 
@@ -661,13 +662,13 @@ public class SDLTexture {
     /// - See also: SDL_UnlockTexture
     /// 
     @MainActor
-    public func withLockedSurface<R>(_ body: (SDLSurface) async throws -> R) async throws -> R {
+    public func withLockedSurface<R: Sendable>(_ body: (SDLSurface) async throws -> R) async throws -> R {
         var surface: UnsafeMutablePointer<SDL_Surface>?
         if !SDL_LockTextureToSurface(texture, nil, &surface) {
             throw SDLError()
         }
         defer {SDL_UnlockTexture(texture)}
-        return try await body(SDLSurface(from: surface!, owned: false))
+        return try await body(SDLSurface(from: surface!.sendable, owned: false))
     }
 }
 
@@ -676,8 +677,9 @@ public class SDLTexture {
 /// 
 /// - Since: This struct is available since SDL 3.2.0.
 /// 
-public class SDLRenderer {
-    public struct FlipMode: OptionSet {
+@MainActor
+public class SDLRenderer: Sendable {
+    public struct FlipMode: OptionSet, Sendable {
         public let rawValue: UInt32
         public init(rawValue val: UInt32) {rawValue = val}
         public static let none = FlipMode([])
@@ -758,7 +760,7 @@ public class SDLRenderer {
         }
     }
 
-    internal let renderer: OpaquePointer
+    nonisolated(unsafe) internal let renderer: OpaquePointer
     public unowned var window: SDLWindow?
 
     internal init(rawValue: OpaquePointer) {
@@ -1526,7 +1528,7 @@ public class SDLRenderer {
     /// 
     @MainActor
     public func texture(from surface: SDLSurface) throws -> SDLTexture {
-        if let t = SDL_CreateTextureFromSurface(renderer, surface.surf) {
+        if let t = SDL_CreateTextureFromSurface(renderer, surface.surf.pointer) {
             return SDLTexture(rawValue: t, owned: true, renderer: self)
         } else {
             throw SDLError()
@@ -2283,7 +2285,7 @@ public class SDLRenderer {
     public func readPixels(in rect: SDLRect) throws -> SDLSurface {
         var r = rect.sdlRect
         if let surf = SDL_RenderReadPixels(renderer, &r) {
-            return SDLSurface(from: surf, owned: true)
+            return SDLSurface(from: surf.sendable, owned: true)
         } else {
             throw SDLError()
         }

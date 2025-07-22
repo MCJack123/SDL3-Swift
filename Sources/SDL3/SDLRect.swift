@@ -1,6 +1,6 @@
 import SDL3_Native
 
-public struct SDLPoint: Equatable {
+public struct SDLPoint: Equatable, Sendable {
     public var x: Int32 = 0
     public var y: Int32 = 0
 
@@ -23,7 +23,7 @@ public struct SDLPoint: Equatable {
     }
 }
 
-public struct SDLSize: Equatable {
+public struct SDLSize: Equatable, Sendable {
     public var width: Int32 = 0
     public var height: Int32 = 0
 
@@ -35,7 +35,7 @@ public struct SDLSize: Equatable {
     }
 }
 
-public struct SDLRect: Equatable {
+public struct SDLRect: Equatable, Sendable {
     public var x: Int32 = 0
     public var y: Int32 = 0
     public var width: Int32 = 0
@@ -147,7 +147,7 @@ public struct SDLRect: Equatable {
     }
 }
 
-public struct SDLFPoint: Equatable {
+public struct SDLFPoint: Equatable, Sendable {
     public var x: Float = 0
     public var y: Float = 0
 
@@ -170,7 +170,7 @@ public struct SDLFPoint: Equatable {
     }
 }
 
-public struct SDLFSize: Equatable {
+public struct SDLFSize: Equatable, Sendable {
     public var width: Float = 0
     public var height: Float = 0
 
@@ -182,11 +182,7 @@ public struct SDLFSize: Equatable {
     }
 }
 
-internal extension SDL_FRect {
-    static let NULL = UnsafePointer<SDL_FRect>(bitPattern: 0)
-}
-
-public struct SDLFRect: Equatable {
+public struct SDLFRect: Equatable, Sendable {
     public var x: Float = 0
     public var y: Float = 0
     public var width: Float = 0
