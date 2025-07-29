@@ -11,7 +11,7 @@ public actor SDLKeyConversionActor: GlobalActor {
 }
 
 @EnumWrapper(SDL_Scancode.self)
-public enum SDLScancode: UInt32 {
+public enum SDLScancode: UInt32, Sendable {
     case unknown = 0
     case a = 4
     case b = 5
@@ -354,7 +354,7 @@ public enum SDLScancode: UInt32 {
     }
 }
 
-public enum SDLKeycode: UInt32 {
+public enum SDLKeycode: UInt32, Sendable {
     case unknown = 0
     case `return` = 13
     case escape = 27
